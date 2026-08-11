@@ -305,6 +305,26 @@
   .task-info { flex: 1; }
   .task-name { font-size: 14px; font-weight: 500; }
   .task-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .responsible-select {
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 1px 3px;
+    margin: -1px -3px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    max-width: 160px;
+  }
+  .responsible-select:hover, .responsible-select:focus {
+    border-color: var(--border);
+    background: var(--offwhite);
+    color: var(--dark);
+    outline: none;
+  }
   .task-timeframe {
     flex-shrink: 0;
     font-size: 11px;
@@ -510,6 +530,7 @@ const MODE = {
     listAction: 'listStarters', tasksAction: 'getStarterTasks',
     addAction: 'addStarter', deleteAction: 'deleteStarter',
     syncAction: 'syncTemplateToAll', statusAction: 'updateTaskStatus',
+    responsibleAction: 'updateTaskResponsible',
     idField: 'starterId', dateField: 'startDate', dateLabel: 'Starts',
     heroTitle: 'Onboarding Tracker', heroSub: 'Live status for every new starter.',
     emptyMsg: 'No starters yet. Add one to get going.',
@@ -521,6 +542,7 @@ const MODE = {
     listAction: 'listLeavers', tasksAction: 'getLeaverTasks',
     addAction: 'addLeaver', deleteAction: 'deleteLeaver',
     syncAction: 'syncOffboardingTemplateToAll', statusAction: 'updateLeaverTaskStatus',
+    responsibleAction: 'updateLeaverTaskResponsible',
     idField: 'leaverId', dateField: 'lastDay', dateLabel: 'Last day',
     heroTitle: 'Offboarding Tracker', heroSub: 'Live status for every leaver.',
     emptyMsg: 'No leavers yet. Add one to get going.',
@@ -705,7 +727,24 @@ async function openStarter(id) {
 
 function renderDetail(starter) {
   const cfg = m();
-  const rows = tasks.map(t => `
+
+  // Build the option list from every distinct "responsible" value already
+  // used across this person's checklist, so there's no separate roster to
+  // maintain, options come straight from real data.
+  const responsibleOptions = Array.from(new Set(
+    tasks.map(t => t.responsible).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+
+  const rows = tasks.map(t => {
+    const opts = responsibleOptions.includes(t.responsible)
+      ? responsibleOptions
+      : [t.responsible, ...responsibleOptions].filter(Boolean);
+    if (!t.responsible) opts.unshift('');
+    const optionsHtml = opts.map(r =>
+      `<option value="${escapeAttr(r)}" ${r === t.responsible ? 'selected' : ''}>${r ? escapeHtml(r) : '—'}</option>`
+    ).join('');
+
+    return `
     <div class="task-row">
       <select class="status-select ${t.status}" onchange="setStatus('${escapeAttr(t.taskName)}', this.value)">
         <option value="not_started" ${t.status === 'not_started' ? 'selected' : ''}>Not started</option>
@@ -716,13 +755,14 @@ function renderDetail(starter) {
       <div class="task-info">
         <div class="task-name">${escapeHtml(t.taskName)}</div>
         <div class="task-meta">
-          Responsible: ${escapeHtml(t.responsible || '—')}
+          Responsible: <select class="responsible-select" onchange="setResponsible('${escapeAttr(t.taskName)}', this.value)">${optionsHtml}</select>
           ${t.updatedBy ? ` · Last updated by ${escapeHtml(t.updatedBy)}` : ''}
         </div>
       </div>
       ${t.timeFrame ? `<div class="task-timeframe">${escapeHtml(t.timeFrame)}</div>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   const id = starter[cfg.idField];
   const dateVal = starter[cfg.dateField];
@@ -835,6 +875,23 @@ async function confirmDeleteStarter(id, name) {
   app.innerHTML = '<div class="loading">Removing...</div>';
   await api(m().deleteAction, {}, 'POST', { [m().idField]: id });
   await loadStarters();
+}
+
+async function setResponsible(taskName, newResponsible) {
+  const task = tasks.find(t => t.taskName === taskName);
+  const updatedBy = getName();
+
+  task.responsible = newResponsible; // optimistic update
+  renderDetail(starters.find(s => s[m().idField] === currentStarterId));
+
+  await api(m().responsibleAction, {}, 'POST', {
+    [m().idField]: currentStarterId,
+    taskName,
+    responsible: newResponsible,
+    updatedBy,
+  });
+
+  starters = await api(m().listAction);
 }
 
 function showAddModal() {
