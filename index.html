@@ -5,14 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QCare Group — Deep Dive Audit Tool v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
-  --qc:#AC4B82;--qc-light:#f7eef4;--qc-mid:#d9a0c0;--qc-dark:#7a2f5b;
-  --bg:#f5f4f2;--white:#fff;--border:#e5e3de;--border2:#d1cec7;
-  --text:#1a1917;--muted:#6b6860;--muted2:#9c9890;
+  /* Primary Purple #AC4B82 and Secondary Accent #D19BB9 are your exact brand
+     hex values. --qc-light and --qc-dark stay purple-family tints derived
+     for hover/background states, not official swatches on their own, kept
+     deliberately subtle rather than reaching for the brand's darker greys
+     here so buttons and accents don't jump tone awkwardly. */
+  --qc:#AC4B82;--qc-light:#F5EBF1;--qc-mid:#D19BB9;--qc-dark:#7a2f5b;
+  --bg:#F4F4F4;--white:#fff;--border:#E5E7EB;--border2:#D1D5DB;
+  --text:#202331;--muted:#6B7280;--muted2:#9CA3AF;
   --ok:#1a7a4a;--ok-bg:#edf7f2;--ok-border:#a3d9bc;
   --warn:#8a5a00;--warn-bg:#fdf6e3;--warn-border:#f5d07a;
   --danger:#9b1f1f;--danger-bg:#fdf0f0;--danger-border:#f5a9a9;
@@ -20,13 +25,13 @@
   --shadow-md:0 4px 12px rgba(0,0,0,0.08);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
 
 /* HEADER */
 header{background:var(--white);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;height:60px;gap:16px;box-shadow:var(--shadow);position:sticky;top:0;z-index:200}
 .header-logo{height:26px;width:auto}
 .hd{width:1px;height:22px;background:var(--border2);flex-shrink:0}
-.htitle{font-family:'Lora',serif;font-size:15px;font-weight:500;letter-spacing:-0.01em}
+.htitle{font-family:'Jost',sans-serif;font-size:15px;font-weight:500;letter-spacing:-0.01em}
 .hbadge{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px}
 .hdot{width:6px;height:6px;border-radius:50%;background:var(--qc);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
@@ -48,19 +53,19 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:0 3
 /* ── QUEUE VIEW ── */
 .queue-wrap{max-width:1100px;margin:0 auto;padding:28px 32px}
 .queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap}
-.queue-title{font-family:'Lora',serif;font-size:20px;font-weight:500}
+.queue-title{font-family:'Jost',sans-serif;font-size:20px;font-weight:500}
 .queue-actions{display:flex;gap:10px;align-items:center}
-.import-btn{display:flex;align-items:center;gap:7px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25)}
+.import-btn{display:flex;align-items:center;gap:7px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25)}
 .import-btn:hover{background:var(--qc-dark)}
 .import-btn input[type=file]{display:none}
-.sec-btn{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--text);border:1px solid var(--border2);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer;transition:all .15s}
+.sec-btn{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--text);border:1px solid var(--border2);border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer;transition:all .15s}
 .sec-btn:hover{border-color:var(--qc);color:var(--qc)}
 
 /* PROGRESS BAR */
 .progress-wrap{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;box-shadow:var(--shadow);display:flex;align-items:center;gap:20px}
 .progress-stats{display:flex;gap:20px}
 .pstat{text-align:center}
-.pstat-num{font-family:'Lora',serif;font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.pstat-num{font-family:'Jost',sans-serif;font-size:22px;font-weight:600;color:var(--text);line-height:1}
 .pstat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .progress-bar-wrap{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
 .progress-bar-fill{height:100%;background:var(--qc);border-radius:3px;transition:width .4s ease}
@@ -77,14 +82,14 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:0 3
 .case-info{flex:1;min-width:0}
 .case-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .case-meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
-.case-score{font-family:'Lora',serif;font-size:18px;font-weight:600;flex-shrink:0}
+.case-score{font-family:'Jost',sans-serif;font-size:18px;font-weight:600;flex-shrink:0}
 .case-chevron{color:var(--muted2);font-size:16px;flex-shrink:0}
 .phone-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
 .phone-chip{display:inline-flex;align-items:center;gap:4px;background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
 .phone-chip:hover{background:var(--qc-mid);color:var(--white)}
 .phone-chip::before{content:'📞';font-size:10px}
 .empty-queue{text-align:center;padding:60px 40px;color:var(--muted)}
-.empty-queue h3{font-family:'Lora',serif;font-size:18px;font-weight:500;margin-bottom:8px;color:var(--text)}
+.empty-queue h3{font-family:'Jost',sans-serif;font-size:18px;font-weight:500;margin-bottom:8px;color:var(--text)}
 .empty-queue p{font-size:13px;line-height:1.6;max-width:340px;margin:0 auto}
 
 /* ── AUDIT VIEW ── */
@@ -97,7 +102,7 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:0 3
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .f{display:flex;flex-direction:column;gap:4px}
 label{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-input,select,textarea{font-family:'Inter',sans-serif;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 11px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
+input,select,textarea{font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;color:var(--text);background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 11px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
 input:focus,select:focus,textarea:focus{border-color:var(--qc);box-shadow:0 0 0 3px rgba(172,75,130,0.1);background:var(--white)}
 select{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239c9890' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
 textarea{resize:vertical;font-size:12px;line-height:1.6}
@@ -131,18 +136,18 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .img-caption{font-size:10px;color:var(--ok);margin-top:4px;display:flex;align-items:center;gap:4px}
 
 /* SUBMIT */
-.submit-btn{background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;padding:12px 20px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25);width:100%}
+.submit-btn{background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;font-weight:600;padding:12px 20px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25);width:100%}
 .submit-btn:hover{background:var(--qc-dark)}
 .submit-btn:disabled{opacity:.5;cursor:not-allowed}
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin .75s linear infinite;display:none}
 .error-msg{display:none;background:var(--danger-bg);border:1px solid var(--danger-border);border-radius:7px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:8px}
-.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;cursor:pointer;padding:0;margin-bottom:4px}
+.back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-family:'Jost',sans-serif;font-size:12px;cursor:pointer;padding:0;margin-bottom:4px}
 .back-btn:hover{color:var(--qc)}
 
 /* RIGHT PANEL STATES */
 .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 32px;gap:12px}
 .empty-icon{width:52px;height:52px;border-radius:12px;background:var(--qc-light);border:1px solid var(--qc-mid);display:flex;align-items:center;justify-content:center;font-size:24px}
-.empty-state h3{font-family:'Lora',serif;font-size:16px;font-weight:500}
+.empty-state h3{font-family:'Jost',sans-serif;font-size:16px;font-weight:500}
 .empty-state p{font-size:13px;color:var(--muted);max-width:280px;line-height:1.6}
 .loading-state{display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 32px}
 .loading-ring{width:34px;height:34px;border:3px solid var(--qc-light);border-top-color:var(--qc);border-radius:50%;animation:spin .9s linear infinite}
@@ -152,11 +157,11 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 /* RESULTS */
 .results{display:none;flex-direction:column;gap:16px}
 .result-header-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:var(--shadow)}
-.result-client-name{font-family:'Lora',serif;font-size:19px;font-weight:500;letter-spacing:-0.02em}
+.result-client-name{font-family:'Jost',sans-serif;font-size:19px;font-weight:500;letter-spacing:-0.02em}
 .result-meta{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
 .meta-chip{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;color:var(--muted)}
 .score-circle{flex-shrink:0;width:68px;height:68px;border-radius:50%;border:3px solid var(--qc);display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--qc-light)}
-.score-circle .num{font-family:'Lora',serif;font-size:20px;font-weight:600;color:var(--qc-dark);line-height:1}
+.score-circle .num{font-family:'Jost',sans-serif;font-size:20px;font-weight:600;color:var(--qc-dark);line-height:1}
 .score-circle .denom{font-size:10px;color:var(--qc);font-weight:500;margin-top:1px}
 
 /* CALL TYPE BANNER */
@@ -190,15 +195,15 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .narrative-list li{font-size:13px;color:var(--text);line-height:1.6;display:flex;gap:9px;align-items:flex-start}
 .narrative-list li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--qc);flex-shrink:0;margin-top:7px}
 .next-steps-list li::before{background:var(--ok)}
-.edit-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:10px;font-weight:500;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s}
+.edit-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Jost',sans-serif;font-size:10px;font-weight:500;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s}
 .edit-btn:hover{border-color:var(--qc);color:var(--qc)}
-.report-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:8px 18px;cursor:pointer;margin-bottom:-2px;transition:all .15s}
+.report-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Jost',sans-serif;font-size:13px;font-weight:500;padding:8px 18px;cursor:pointer;margin-bottom:-2px;transition:all .15s}
 .report-tab:hover{color:var(--text)}
 .report-tab.active{color:var(--qc);border-bottom-color:var(--qc);font-weight:600}
 .rpt-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px}
 .rpt-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
 .rpt-stat{display:flex;flex-direction:column;align-items:center;gap:3px}
-.rpt-stat-num{font-family:'Lora',serif;font-size:28px;font-weight:600;line-height:1}
+.rpt-stat-num{font-family:'Jost',sans-serif;font-size:28px;font-weight:600;line-height:1}
 .rpt-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:center}
 .heatmap-cell{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;gap:12px}
 .heatmap-bar{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
@@ -214,7 +219,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
    nothing populates that div anymore since PDF export moved to the modal
    iframe approach in exportPDF(). Removed for clarity, no behaviour change. */
 .score-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
-.copy-btn{align-self:flex-end;background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:28px}
+.copy-btn{align-self:flex-end;background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Jost',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:28px}
 .copy-btn:hover{border-color:var(--qc);color:var(--qc);background:var(--qc-light)}
 
 /* BUSINESS SOLUTIONS */
@@ -239,11 +244,11 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .dash-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow)}
 .dash-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
 .stat-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:16px 20px;box-shadow:var(--shadow)}
-.stat-num{font-family:'Lora',serif;font-size:28px;font-weight:600;line-height:1;margin-bottom:4px}
+.stat-num{font-family:'Jost',sans-serif;font-size:28px;font-weight:600;line-height:1;margin-bottom:4px}
 .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .stat-sub{font-size:11px;color:var(--muted2);margin-top:3px}
 .comp-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:16px 20px;box-shadow:var(--shadow)}
-.comp-rate{font-family:'Lora',serif;font-size:26px;font-weight:600;line-height:1;margin-bottom:4px}
+.comp-rate{font-family:'Jost',sans-serif;font-size:26px;font-weight:600;line-height:1;margin-bottom:4px}
 .handler-row-dash{display:grid;grid-template-columns:160px repeat(6,1fr);gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px}
 .handler-row-dash.header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:8px}
 .trend-bar-row{display:grid;grid-template-columns:80px 1fr 48px;gap:12px;align-items:center;padding:6px 0}
@@ -254,7 +259,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 /* HANDLER MANAGEMENT */
 .handler-row{display:flex;gap:7px;align-items:center}
 .handler-row input{flex:1}
-.add-btn{background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:background .15s}
+.add-btn{background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-family:'Jost',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:background .15s}
 .add-btn:hover{background:var(--qc-mid)}
 .handler-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .handler-tag{display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:2px 7px 2px 9px;font-size:11px;color:var(--text)}
@@ -269,27 +274,27 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 
 <header>
   <img class="header-logo" src="https://cdn.prod.website-files.com/5e5388b816879c1d6acbfa0f/64e4bc8cca069cde0bcfda16_QCG_GROUP_AC4B82.svg" alt="Quality Care Group" onerror="this.style.display='none';document.getElementById('fb').style.display='flex'">
-  <div id="fb" style="display:none;align-items:center;gap:7px"><div style="width:26px;height:26px;border-radius:5px;background:var(--qc);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:11px">Q</div><span style="font-family:'Lora',serif;font-weight:600;font-size:14px;color:var(--qc-dark)">Quality Care Group</span></div>
+  <div id="fb" style="display:none;align-items:center;gap:7px"><div style="width:26px;height:26px;border-radius:5px;background:var(--qc);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:11px">Q</div><span style="font-family:'Jost',sans-serif;font-weight:600;font-size:14px;color:var(--qc-dark)">Quality Care Group</span></div>
   <div class="hd"></div>
   <span class="htitle">Deep Dive Audit Tool</span>
   <div class="hbadge"><div class="hdot"></div>AI-Powered</div>
   <div id="userBadge" style="display:none;align-items:center;gap:10px;margin-left:12px">
     <span id="userBadgeName" style="font-size:12px;color:var(--muted);font-weight:500"></span>
-    <button onclick="logout()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer">Log out</button>
+    <button onclick="logout()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer">Log out</button>
   </div>
 </header>
 
 <!-- ══ LOGIN GATE ══ -->
 <div id="loginGate" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center">
   <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:36px 32px;width:340px;max-width:90vw;box-shadow:var(--shadow-md)">
-    <div style="font-family:'Lora',serif;font-size:19px;font-weight:500;margin-bottom:4px;color:var(--qc-dark)">Quality Care Group</div>
+    <div style="font-family:'Jost',sans-serif;font-size:19px;font-weight:500;margin-bottom:4px;color:var(--qc-dark)">Quality Care Group</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:22px">Deep Dive Audit Tool — sign in</div>
     <div style="display:flex;flex-direction:column;gap:10px">
       <div class="f"><label>Email</label><input type="email" id="loginEmail" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()"></div>
       <div class="f"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     </div>
     <div id="loginError" style="display:none;color:var(--danger);font-size:12px;margin-top:10px"></div>
-    <button onclick="doLogin()" id="loginBtn" style="width:100%;margin-top:16px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer">Sign in</button>
+    <button onclick="doLogin()" id="loginBtn" style="width:100%;margin-top:16px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer">Sign in</button>
     <div style="font-size:11px;color:var(--muted2);margin-top:14px;line-height:1.5">Don't have an account yet? Ask your team admin to set one up.</div>
   </div>
 </div>
@@ -311,18 +316,18 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
             <div style="font-size:13px;font-weight:600;color:var(--warn)">⚠ Unsaved audit data</div>
             <div id="exportReminderSub" style="font-size:12px;color:var(--warn);margin-top:2px">Export your data to keep a safe backup</div>
           </div>
-          <button onclick="exportCSV()" style="background:var(--warn);color:white;border:none;border-radius:7px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;white-space:nowrap">↗ Export CSV now</button>
+          <button onclick="exportCSV()" style="background:var(--warn);color:white;border:none;border-radius:7px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;white-space:nowrap">↗ Export CSV now</button>
         </div>
-        <button id="anonBtn" onclick="toggleAnonymise()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap">👁 Anonymise view</button>
+        <button id="anonBtn" onclick="toggleAnonymise()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap">👁 Anonymise view</button>
       </div>
 
     <div class="queue-header">
       <div>
         <div class="queue-title">Audit Queue</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <select id="monthSelect" onchange="switchMonth(this.value)" style="font-size:12px;padding:6px 28px 6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;cursor:pointer">
+          <select id="monthSelect" onchange="switchMonth(this.value)" style="font-size:12px;padding:6px 28px 6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;cursor:pointer">
           </select>
-          <button onclick="addNewMonth()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">+ New month</button>
+          <button onclick="addNewMonth()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">+ New month</button>
         </div>
       </div>
       <div class="queue-actions">
@@ -601,7 +606,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
             <textarea id="auditChatInput" placeholder="Ask me to adjust anything in the report... e.g.&#10;'Business solutions aren't relevant on this call'&#10;'D&O doesn't apply here'&#10;'This was a quick close for a colleague — adjust accordingly'&#10;'Draft a coaching email for the handler'" style="width:100%;min-height:80px;font-size:12px;line-height:1.6;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))sendAuditChat()"></textarea>
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span style="font-size:10px;color:var(--muted2)">Ctrl+Enter to send</span>
-              <button onclick="sendAuditChat()" style="background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 18px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer">Send</button>
+              <button onclick="sendAuditChat()" style="background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 18px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:600;cursor:pointer">Send</button>
             </div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" id="auditChatSuggestions"></div>
@@ -609,7 +614,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 
         <!-- RE-ANALYSE -->
         <div style="display:flex;justify-content:center;padding:4px 0 8px">
-          <button onclick="reAnalyse()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:8px 20px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s" onmouseover="this.style.borderColor='var(--qc)';this.style.color='var(--qc)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">
+          <button onclick="reAnalyse()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:500;padding:8px 20px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s" onmouseover="this.style.borderColor='var(--qc)';this.style.color='var(--qc)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">
             ↺ Re-analyse from scratch
           </button>
         </div>
@@ -628,7 +633,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
   <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-      <div style="font-family:'Lora',serif;font-size:20px;font-weight:500">Trends &amp; Performance</div>
+      <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:500">Trends &amp; Performance</div>
       <div style="display:flex;gap:10px;align-items:center">
         <select id="dashPeriod" onchange="renderDashboard()" style="font-size:12px;padding:7px 28px 7px 10px;border-radius:7px">
           <option value="all">All time</option>
@@ -680,7 +685,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
       <div id="trendsChatMessages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;max-height:320px;overflow-y:auto"></div>
       <div style="display:flex;gap:8px">
         <input type="text" id="trendsChatInput" placeholder="Ask about your team data... e.g. who needs the most urgent coaching?" style="flex:1;font-size:12px" onkeydown="if(event.key==='Enter')sendTrendsChat()">
-        <button onclick="sendTrendsChat()" style="background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Send</button>
+        <button onclick="sendTrendsChat()" style="background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 14px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Send</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" id="trendsChatSuggestions"></div>
     </div>
@@ -691,12 +696,12 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 <!-- ══ HANDLERS VIEW ══ -->
 <div class="view" id="viewHandlers">
   <div style="max-width:700px;margin:0 auto;padding:28px 32px">
-    <div style="font-family:'Lora',serif;font-size:20px;font-weight:500;margin-bottom:6px">Teams &amp; Handlers</div>
+    <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:500;margin-bottom:6px">Teams &amp; Handlers</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Manage teams and assign handlers. Changes here save immediately and are visible to everyone on the team.</div>
     <div id="teamsViewWrap"></div>
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Danger Zone</div>
-      <button id="hardResetBtn" data-confirm="0" onclick="hardReset()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:7px 14px;border-radius:7px;cursor:pointer;transition:all .15s">Reset all data</button>
+      <button id="hardResetBtn" data-confirm="0" onclick="hardReset()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:500;padding:7px 14px;border-radius:7px;cursor:pointer;transition:all .15s">Reset all data</button>
       <div style="font-size:11px;color:var(--muted2);margin-top:6px">Clears all queue data, audit history and export records. Cannot be undone.</div>
     </div>
   </div>
@@ -707,7 +712,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 <div class="view" id="viewReports">
   <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
 
-    <div style="font-family:'Lora',serif;font-size:20px;font-weight:500;margin-bottom:20px">Reports</div>
+    <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:500;margin-bottom:20px">Reports</div>
 
     <!-- REPORT TABS -->
     <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px">
@@ -1473,11 +1478,11 @@ function showSheetPicker(wb, processRows) {
   modal.style.cssText = 'background:var(--white);border-radius:12px;padding:24px;width:420px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.15)';
 
   modal.innerHTML = `
-    <div style="font-family:'Lora',serif;font-size:17px;font-weight:500;margin-bottom:6px">Multiple sheets found</div>
+    <div style="font-family:'Jost',sans-serif;font-size:17px;font-weight:500;margin-bottom:6px">Multiple sheets found</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Your Excel file has ${wb.SheetNames.length} sheets. Select the one that contains your Acturis case data.</div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px" id="sheetList"></div>
     <div style="display:flex;justify-content:flex-end">
-      <button onclick="document.getElementById('sheetPickerOverlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;padding:8px 16px;border-radius:7px;cursor:pointer">Cancel</button>
+      <button onclick="document.getElementById('sheetPickerOverlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;padding:8px 16px;border-radius:7px;cursor:pointer">Cancel</button>
     </div>`;
 
   overlay.appendChild(modal);
@@ -1517,7 +1522,7 @@ function initCallSlots() {
       </div>
       <div class="call-slot-body ${i > 1 ? 'collapsed' : ''}" id="slotBody${i}">
         <div style="display:flex;justify-content:flex-end;margin-bottom:5px">
-          <button onclick="pasteFromClipboard(${i})" style="background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer">📋 Paste transcript</button>
+          <button onclick="pasteFromClipboard(${i})" style="background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer">📋 Paste transcript</button>
         </div>
         <textarea class="slot-textarea" id="slotText${i}" placeholder="Paste transcript here using the button above, or Ctrl+V / ⌘V." oninput="updateSlotStatus(${i})" onpaste="handleTextPaste(event,${i})"></textarea>
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2157,7 +2162,7 @@ function renderTeamsView() {
     block.style.cssText = 'background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:14px';
     block.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-family:'Lora',serif;font-size:16px;font-weight:500">${team.name}</div>
+        <div style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500">${team.name}</div>
         <button onclick="renameTeam(${ti})" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline">Rename</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="teamHandlers_${ti}"></div>
@@ -3118,13 +3123,13 @@ function exportPDF() {
 
   const flagHTML = ['RV','Cyber','DO'].map(k => {
     const comp = r.compliance?.[k] || {};
-    const bg = comp.result==='pass' ? '#edf7f2' : comp.result==='fail' ? '#fdf0f0' : '#f5f4f2';
-    const bc = comp.result==='pass' ? '#a3d9bc' : comp.result==='fail' ? '#f5a9a9' : '#d1cec7';
-    const rc = comp.result==='pass' ? '#1a7a4a' : comp.result==='fail' ? '#9b1f1f' : '#6b6860';
+    const bg = comp.result==='pass' ? '#edf7f2' : comp.result==='fail' ? '#fdf0f0' : '#F4F4F4';
+    const bc = comp.result==='pass' ? '#a3d9bc' : comp.result==='fail' ? '#f5a9a9' : '#D1D5DB';
+    const rc = comp.result==='pass' ? '#1a7a4a' : comp.result==='fail' ? '#9b1f1f' : '#6B7280';
     return `<div style="border:1px solid ${bc};background:${bg};border-radius:6px;padding:10px 12px">
       <div style="font-weight:600;font-size:12px;margin-bottom:3px">${compLabels[k]}</div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${rc}">${comp.result==='na'?'N/A':(comp.result||'—').toUpperCase()}</div>
-      <div style="font-size:11px;color:#6b6860;margin-top:3px;line-height:1.4">${comp.note||''}</div>
+      <div style="font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4">${comp.note||''}</div>
     </div>`;
   }).join('');
 
@@ -3133,13 +3138,13 @@ function exportPDF() {
   const mfChecked = mfItems.filter(id => savedSof[id]).length;
   const mfTotal = mfItems.length;
   const mfResult = mfChecked === mfTotal ? 'pass' : mfChecked > 0 ? 'partial' : 'pending';
-  const mfBg = mfResult==='pass'?'#edf7f2':mfResult==='partial'?'#fdf6e3':'#f5f4f2';
-  const mfBc = mfResult==='pass'?'#a3d9bc':mfResult==='partial'?'#f5d07a':'#d1cec7';
-  const mfRc = mfResult==='pass'?'#1a7a4a':mfResult==='partial'?'#8a5a00':'#6b6860';
+  const mfBg = mfResult==='pass'?'#edf7f2':mfResult==='partial'?'#fdf6e3':'#F4F4F4';
+  const mfBc = mfResult==='pass'?'#a3d9bc':mfResult==='partial'?'#f5d07a':'#D1D5DB';
+  const mfRc = mfResult==='pass'?'#1a7a4a':mfResult==='partial'?'#8a5a00':'#6B7280';
   const mfFlagHTML = `<div style="border:1px solid ${mfBc};background:${mfBg};border-radius:6px;padding:10px 12px">
     <div style="font-weight:600;font-size:12px;margin-bottom:3px">Material Facts</div>
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${mfRc}">${mfResult==='pending'?'PENDING':mfResult==='pass'?'PASS':'PARTIAL'}</div>
-    <div style="font-size:11px;color:#6b6860;margin-top:3px;line-height:1.4">${mfChecked}/${mfTotal} items confirmed via SOF</div>
+    <div style="font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4">${mfChecked}/${mfTotal} items confirmed via SOF</div>
   </div>`;
 
   const scoresHTML = Object.entries(r.scores||{})
@@ -3148,31 +3153,31 @@ function exportPDF() {
       const pct = v.score/v.max;
       const col = pct>=0.67?'#1a7a4a':pct>=0.34?'#8a5a00':'#9b1f1f';
       return `<tr>
-        <td style="padding:6px 0;border-bottom:1px solid #f5f4f2;font-size:12px">${SCORE_LABELS[k]||k}<br><span style="font-size:10px;color:#6b6860">${v.rationale||''}</span></td>
-        <td style="padding:6px 0;border-bottom:1px solid #f5f4f2;text-align:right;font-weight:600;color:${col};font-size:12px">${v.score}/${v.max}</td>
+        <td style="padding:6px 0;border-bottom:1px solid #F4F4F4;font-size:12px">${SCORE_LABELS[k]||k}<br><span style="font-size:10px;color:#6B7280">${v.rationale||''}</span></td>
+        <td style="padding:6px 0;border-bottom:1px solid #F4F4F4;text-align:right;font-weight:600;color:${col};font-size:12px">${v.score}/${v.max}</td>
       </tr>`;
     }).join('');
 
   const bsHTML = Object.entries(r.businessSolutions||{}).map(([k,v]) => {
-    const col = v.result==='asked_opportunity'?'#1a7a4a':v.result==='not_asked'?'#9b1f1f':'#6b6860';
+    const col = v.result==='asked_opportunity'?'#1a7a4a':v.result==='not_asked'?'#9b1f1f':'#6B7280';
     return `<tr>
-      <td style="padding:5px 0;border-bottom:1px solid #f5f4f2;font-size:11px">${bsLabels[k]||k}</td>
-      <td style="padding:5px 0;border-bottom:1px solid #f5f4f2;text-align:right;font-size:10px;font-weight:600;color:${col}">${bsBadgeText[v.result]||v.result}</td>
+      <td style="padding:5px 0;border-bottom:1px solid #F4F4F4;font-size:11px">${bsLabels[k]||k}</td>
+      <td style="padding:5px 0;border-bottom:1px solid #F4F4F4;text-align:right;font-size:10px;font-weight:600;color:${col}">${bsBadgeText[v.result]||v.result}</td>
     </tr>`;
   }).join('');
 
   const listHTML = (items, colour) => (items||[]).map(i =>
-    `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;line-height:1.5;border-bottom:1px solid #f5f4f2">
+    `<div style="display:flex;gap:8px;padding:4px 0;font-size:12px;line-height:1.5;border-bottom:1px solid #F4F4F4">
       <span style="color:${colour};font-weight:700;flex-shrink:0">•</span><span>${i}</span>
     </div>`).join('');
 
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>Audit Report — ${c.name||'Client'}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body{font-family:'Inter',sans-serif;font-size:13px;color:#1a1917;background:white;margin:0;padding:40px;max-width:800px;margin:0 auto}
-  h2{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#6b6860;border-bottom:1px solid #e5e3de;padding-bottom:6px;margin:24px 0 12px;font-weight:600}
+  body{font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;color:#202331;background:white;margin:0;padding:40px;max-width:800px;margin:0 auto}
+  h2{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#6B7280;border-bottom:1px solid #E5E7EB;padding-bottom:6px;margin:24px 0 12px;font-weight:600}
   table{width:100%;border-collapse:collapse}
   @media print{body{padding:20px}button{display:none}}
 </style>
@@ -3180,11 +3185,11 @@ function exportPDF() {
 
 <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #AC4B82;padding-bottom:16px;margin-bottom:24px">
   <div>
-    <div style="font-family:'Lora',serif;font-size:22px;font-weight:600;color:#AC4B82">Quality Care Group</div>
-    <div style="font-size:13px;color:#6b6860;margin-top:2px">Deep Dive Audit Report</div>
+    <div style="font-family:'Jost',sans-serif;font-size:22px;font-weight:600;color:#AC4B82">Quality Care Group</div>
+    <div style="font-size:13px;color:#6B7280;margin-top:2px">Deep Dive Audit Report</div>
   </div>
-  <div style="text-align:right;font-size:11px;color:#6b6860;line-height:1.8">
-    <div style="font-size:15px;font-weight:600;color:#1a1917;font-family:'Lora',serif">${c.name||'Unknown Client'}</div>
+  <div style="text-align:right;font-size:11px;color:#6B7280;line-height:1.8">
+    <div style="font-size:15px;font-weight:600;color:#202331;font-family:'Jost',sans-serif">${c.name||'Unknown Client'}</div>
     <div>${[c.ref, c.handler, c.policyType].filter(Boolean).join(' · ')}</div>
     ${c.renewal ? `<div>Renewal: ${c.renewal}</div>` : ''}
     <div>Audited: ${c.auditedAt ? new Date(c.auditedAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div>
@@ -3193,15 +3198,15 @@ function exportPDF() {
 
 <div style="display:flex;align-items:center;gap:16px;background:#f7eef4;border:1px solid #d9a0c0;border-radius:10px;padding:16px 20px;margin-bottom:8px">
   <div style="width:64px;height:64px;border-radius:50%;border:3px solid #AC4B82;background:white;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
-    <div style="font-family:'Lora',serif;font-size:20px;font-weight:600;color:#7a2f5b;line-height:1">${total}</div>
+    <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:600;color:#7a2f5b;line-height:1">${total}</div>
     <div style="font-size:9px;color:#AC4B82;font-weight:500">/ ${maxT}</div>
   </div>
   <div style="width:64px;height:64px;border-radius:50%;border:3px solid ${gradeCol};background:${gradeBg};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
     <div style="font-size:${compGrade==='PARTIAL'?'9':'11'}px;font-weight:700;color:${gradeCol};line-height:1;text-align:center">${compGrade}</div>
   </div>
   <div>
-    <div style="font-size:13px;color:#1a1917">Call quality: <strong>${total}/${maxT}</strong> &nbsp;|&nbsp; Compliance: <strong style="color:${gradeCol}">${compGrade}</strong></div>
-    <div style="font-size:11px;color:#6b6860;margin-top:4px">Call types: ${(r.callTypes||[]).join(', ')||'Not specified'}</div>
+    <div style="font-size:13px;color:#202331">Call quality: <strong>${total}/${maxT}</strong> &nbsp;|&nbsp; Compliance: <strong style="color:${gradeCol}">${compGrade}</strong></div>
+    <div style="font-size:11px;color:#6B7280;margin-top:4px">Call types: ${(r.callTypes||[]).join(', ')||'Not specified'}</div>
   </div>
 </div>
 
@@ -3237,14 +3242,14 @@ ${r.devPlan&&r.devPlan.length?`<h2 style="margin-top:24px">Handler Development P
 ${listHTML(r.devPlan,'#7a2f5b')}
 </div>`:''}
 
-<div style="margin-top:40px;border-top:1px solid #e5e3de;padding-top:12px;font-size:10px;color:#9c9890;display:flex;justify-content:space-between">
+<div style="margin-top:40px;border-top:1px solid #E5E7EB;padding-top:12px;font-size:10px;color:#9CA3AF;display:flex;justify-content:space-between">
   <span>Quality Care Group — Confidential</span>
   <span>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span>
 </div>
 
 <div style="margin-top:20px;text-align:center;display:flex;gap:10px;justify-content:center">
   <button onclick="window.print()" style="background:#AC4B82;color:white;border:none;border-radius:7px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer">🖨 Print / Save as PDF</button>
-  <button onclick="window.close()" style="background:transparent;border:1px solid #d1cec7;color:#6b6860;border-radius:7px;padding:10px 16px;font-size:13px;cursor:pointer">Close</button>
+  <button onclick="window.close()" style="background:transparent;border:1px solid #D1D5DB;color:#6B7280;border-radius:7px;padding:10px 16px;font-size:13px;cursor:pointer">Close</button>
 </div>
 
 </body></html>`;
@@ -3262,10 +3267,10 @@ ${listHTML(r.devPlan,'#7a2f5b')}
   const toolbar = document.createElement('div');
   toolbar.style.cssText = 'background:#AC4B82;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:1';
   toolbar.innerHTML = `
-    <span style="color:white;font-family:'Inter',sans-serif;font-size:13px;font-weight:600">Audit Report — ${(currentCaseIdx !== null ? cases[currentCaseIdx]?.name : '') || 'Preview'}</span>
+    <span style="color:white;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;font-weight:600">Audit Report — ${(currentCaseIdx !== null ? cases[currentCaseIdx]?.name : '') || 'Preview'}</span>
     <div style="display:flex;gap:8px">
-      <button id="downloadReportBtn" style="background:white;color:#AC4B82;border:none;border-radius:6px;padding:7px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer">⬇ Download Report</button>
-      <button onclick="document.getElementById('pdfModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:6px;padding:7px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer">✕ Close</button>
+      <button id="downloadReportBtn" style="background:white;color:#AC4B82;border:none;border-radius:6px;padding:7px 14px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:700;cursor:pointer">⬇ Download Report</button>
+      <button onclick="document.getElementById('pdfModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:6px;padding:7px 14px;font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:600;cursor:pointer">✕ Close</button>
     </div>`;
 
   setTimeout(() => {
