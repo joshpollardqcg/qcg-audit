@@ -332,7 +332,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
       </div>
       <div class="queue-actions">
         <button class="sec-btn" onclick="exportCSV()">↗ Export CSV</button>
-        <button class="sec-btn" onclick="addManualCase()">+ Add Case</button>
+        <button class="sec-btn" id="addCaseBtn" onclick="addManualCase()">+ Add Case</button>
         <label class="import-btn">
           📂 Import Acturis CSV
           <input type="file" accept=".csv,.xlsx,.xls" onchange="importActuris(this)">
@@ -595,6 +595,16 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
               <button onclick="saveEditList('rGaps','gaps')" style="background:var(--qc);color:white;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">Save</button>
               <button onclick="cancelEdit('rGaps')" style="background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Cancel</button>
             </div>
+          </div>
+        </div>
+
+        <div class="narrative-card">
+          <h3 style="display:flex;align-items:center;justify-content:space-between">Recommended next steps <button onclick="toggleEditList('rNextSteps','nextSteps')" class="edit-btn">✏ Edit</button></h3>
+          <ul class="narrative-list next-steps-list" id="rNextSteps"></ul>
+          <textarea id="rNextStepsEdit" style="display:none;width:100%;min-height:80px;margin-top:8px;font-size:12px;resize:vertical" placeholder="One item per line"></textarea>
+          <div id="rNextStepsEditBtns" style="display:none;gap:6px;margin-top:6px;justify-content:flex-end">
+            <button onclick="saveEditList('rNextSteps','nextSteps')" style="background:var(--qc);color:white;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">Save</button>
+            <button onclick="cancelEdit('rNextSteps')" style="background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Cancel</button>
           </div>
         </div>
 
@@ -904,14 +914,26 @@ let sessionTeams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
 let sessionUnassigned = [...DEFAULT_UNASSIGNED];
 let lastResult = null;
 let lastExportTime = null;
+let anonymiseMode = false; // deliberately session-only, not persisted — resets on reload
 
 let handlersById = {};      // Supabase handlers.id -> row
 let handlersByName = {};    // handler name -> row
 
 async function loadHandlersCache() {
-  const { data: teamRows } = await sb.from('teams').select('*').order('name');
+  const { data: teamRows, error: teamsError } = await sb.from('teams').select('*').order('name');
   const { data: handlerRows, error } = await sb.from('handlers').select('*').order('name');
-  if (error) { console.warn('Handlers load failed:', error); return; }
+  if (error || teamsError) {
+    console.warn('Handlers load failed:', error || teamsError);
+    // If nothing has ever loaded successfully this session, don't leave the
+    // hardcoded DEFAULT_TEAMS names on screen looking like real data — an
+    // empty state is honest, a fake-looking populated one isn't.
+    if (!Object.keys(handlersById).length) {
+      sessionTeams = [];
+      sessionUnassigned = [];
+    }
+    showStorageStatus('⚠ Could not load team/handler data — check your connection and reload');
+    return;
+  }
   handlersById = {}; handlersByName = {};
   (handlerRows||[]).forEach(h => { handlersById[h.id] = h; handlersByName[h.name] = h; });
 
@@ -946,7 +968,7 @@ function dbCaseToLocal(c, audit) {
     result: audit ? {
       callTypes: audit.call_types, scores: audit.scores, compliance: audit.compliance,
       businessSolutions: audit.business_solutions, summary: audit.summary,
-      strengths: audit.strengths, gaps: audit.gaps, devPlan: audit.dev_plan
+      strengths: audit.strengths, gaps: audit.gaps, nextSteps: audit.next_steps, devPlan: audit.dev_plan
     } : null,
     auditedAt: audit ? audit.audited_at : null,
     sofData: audit ? audit.sof_data : null
@@ -1078,7 +1100,7 @@ async function exportCSV() {
     'Closing Proactivity','Cover Confirmation','Last Mile Cross-sell','Relationship Close',
     'RV','Cyber','D&O',
     'Recruitment BS','Energy BS','Risk BS','Wealth BS','Sales BS',
-    'Summary','Strengths','Gaps','Dev Plan'];
+    'Summary','Strengths','Gaps','Next Steps','Dev Plan'];
 
   const escCSV = v => {
     const s = String(v||'');
@@ -1105,7 +1127,7 @@ async function exportCSV() {
       sc.relationshipClose?.applicable ? sc.relationshipClose?.score??'' : 'N/A',
       co.RV?.result||'', co.Cyber?.result||'', co.DO?.result||'',
       bs.recruitment?.result||'', bs.energy?.result||'', bs.risk?.result||'', bs.wealth?.result||'', bs.sales?.result||'',
-      r.summary||'', (r.strengths||[]).join(' | '), (r.gaps||[]).join(' | '), (r.devPlan||[]).join(' | ')
+      r.summary||'', (r.strengths||[]).join(' | '), (r.gaps||[]).join(' | '), (r.nextSteps||[]).join(' | '), (r.devPlan||[]).join(' | ')
     ].map(escCSV).join(',');
   });
 
@@ -1214,16 +1236,23 @@ function renderQueue() {
            ${c.compGrade ? `<span style="font-size:9px;font-weight:700;color:${gradeColor};background:${gradeBg};border:1px solid ${gradeBorder};border-radius:3px;padding:1px 5px;text-transform:uppercase;letter-spacing:.04em">C: ${c.compGrade}</span>` : ''}
          </div>`
       : '<span style="font-size:12px;color:var(--muted2)">Not audited</span>';
-    const phoneChips = c.phones.filter(Boolean).map(p =>
+
+    // Anonymise mode masks the fields that identify the client (name, ref,
+    // phone numbers) while leaving handler, renewal date, score and
+    // compliance visible — those are what a coaching conversation actually
+    // needs, the client's identity isn't.
+    const displayName = anonymiseMode ? `Client ${i+1}` : (c.name || 'Unnamed Client');
+    const displayRef = anonymiseMode ? '••••••' : c.ref;
+    const phoneChips = anonymiseMode ? '' : c.phones.filter(Boolean).map(p =>
       `<span class="phone-chip" onclick="copyPhone(event,'${p}')" title="Click to copy">${p}</span>`
     ).join('');
 
     card.innerHTML = `
       <div class="case-status-dot ${c.audited ? 'audited' : c.inProgress ? 'in-progress' : ''}"></div>
       <div class="case-info">
-        <div class="case-name">${c.name || 'Unnamed Client'}</div>
+        <div class="case-name">${displayName}</div>
         <div class="case-meta">
-          ${c.ref ? `<span>${c.ref}</span>` : ''}
+          ${displayRef ? `<span>${displayRef}</span>` : ''}
           ${c.handler ? `<span>${c.handler}</span>` : ''}
           ${c.renewal ? `<span>Renewal: ${c.renewal}</span>` : ''}
         </div>
@@ -1234,6 +1263,23 @@ function renderQueue() {
     card.onclick = () => openCase(i);
     grid.appendChild(card);
   });
+}
+
+function toggleAnonymise() {
+  anonymiseMode = !anonymiseMode;
+  const btn = document.getElementById('anonBtn');
+  if (anonymiseMode) {
+    btn.textContent = '🔒 Anonymised';
+    btn.style.background = 'var(--qc-light)';
+    btn.style.borderColor = 'var(--qc-mid)';
+    btn.style.color = 'var(--qc-dark)';
+  } else {
+    btn.textContent = '👁 Anonymise view';
+    btn.style.background = 'transparent';
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.color = 'var(--muted)';
+  }
+  renderQueue();
 }
 
 function openCase(idx) {
@@ -1297,26 +1343,33 @@ function renderLeftPhones(phones) {
 }
 
 async function addManualCase() {
-  const { data, error } = await sb.from('cases').insert({
-    month_key: currentMonth, ref:'', name:'', renewal_date:null, phones:[], audited:false, in_progress:false
-  }).select().single();
-  if (error) { alert('Could not create case: ' + error.message); return; }
-  if (!knownMonths.includes(currentMonth)) knownMonths.push(currentMonth);
-  cases.push(dbCaseToLocal(data, null));
-  currentCaseIdx = cases.length - 1;
-  document.getElementById('clientRef').value = '';
-  document.getElementById('clientName').value = '';
-  document.getElementById('renewalDate').value = '';
-  document.querySelectorAll('.policy-type-cb').forEach(cb => cb.checked = false);
-  updateRVFromPolicyType();
-  renderHandlerSelect();
-  renderLeftPhones([]);
-  resetAuditPanel();
-  auditChatHistory = [];
-  document.getElementById('auditAssistantCard').style.display = 'none';
-  document.getElementById('auditChatMessages').innerHTML = '';
-  document.getElementById('tabAudit').style.display = 'flex';
-  switchView('audit');
+  const btn = document.getElementById('addCaseBtn');
+  if (btn.disabled) return; // already in flight from a fast double-click
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.from('cases').insert({
+      month_key: currentMonth, ref:'', name:'', renewal_date:null, phones:[], audited:false, in_progress:false
+    }).select().single();
+    if (error) { alert('Could not create case: ' + error.message); return; }
+    if (!knownMonths.includes(currentMonth)) knownMonths.push(currentMonth);
+    cases.push(dbCaseToLocal(data, null));
+    currentCaseIdx = cases.length - 1;
+    document.getElementById('clientRef').value = '';
+    document.getElementById('clientName').value = '';
+    document.getElementById('renewalDate').value = '';
+    document.querySelectorAll('.policy-type-cb').forEach(cb => cb.checked = false);
+    updateRVFromPolicyType();
+    renderHandlerSelect();
+    renderLeftPhones([]);
+    resetAuditPanel();
+    auditChatHistory = [];
+    document.getElementById('auditAssistantCard').style.display = 'none';
+    document.getElementById('auditChatMessages').innerHTML = '';
+    document.getElementById('tabAudit').style.display = 'flex';
+    switchView('audit');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function clearQueue() {
@@ -1729,6 +1782,7 @@ Return ONLY valid JSON with this exact structure — no preamble, no markdown:
   "summary": "2-3 sentences covering the full client journey",
   "strengths": ["specific strength 1", "specific strength 2"],
   "gaps": ["specific gap 1", "specific gap 2"],
+  "nextSteps": ["concrete action 1", "concrete action 2"],
   "devPlan": ["development point 1", "development point 2", "development point 3"]
 }
 
@@ -1829,6 +1883,9 @@ wealth: Did handler ask about the provider's own financial planning, life insura
 sales: Did handler ask about the 5 year plan or future of the business? Only na if confirmed non-owner.
 
 Be specific. Reference actual content from transcripts. Not_asked is the default if there is no evidence the question was asked.
+
+NEXT STEPS (nextSteps):
+Generate 2-4 concrete follow-up actions on THIS specific case — not handler coaching, that's devPlan below. These are things that need doing to actually close out this renewal properly. Examples: "Confirm reinstatement value with client before renewal date", "Chase outstanding SOF return", "Send written confirmation of agreed cyber cover". Each item should be a specific, checkable action a manager or handler could tick off, not a vague sentiment. If the audit shows the case is fully wrapped up with nothing outstanding, it's fine to return a short list acknowledging that (e.g. "No outstanding actions — renewal fully confirmed").
 
 DEVELOPMENT PLAN (devPlan):
 Generate 3-5 specific, actionable development points for the handler based on this audit. These should:
@@ -2031,9 +2088,9 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   }
 
   document.getElementById('rSummary').textContent = r.summary;
-  ['rStrengths','rGaps','rDevPlan'].forEach((id,i) => {
+  ['rStrengths','rGaps','rNextSteps','rDevPlan'].forEach((id,i) => {
     const ul = document.getElementById(id); if (!ul) return; ul.innerHTML = '';
-    ([r.strengths, r.gaps, r.devPlan][i]||[]).forEach(t => {
+    ([r.strengths, r.gaps, r.nextSteps, r.devPlan][i]||[]).forEach(t => {
       const li = document.createElement('li'); li.textContent = t; ul.appendChild(li);
     });
   });
@@ -2117,7 +2174,7 @@ function copyReport() {
   const flags = ['RV','Cyber','DO'].map(k => k+': '+document.getElementById('badge'+k).textContent+' — '+document.getElementById('note'+k).textContent).join('\n');
   const summary = document.getElementById('rSummary').textContent;
   const list = id => [...document.getElementById(id).querySelectorAll('li')].map(l => '• '+l.textContent).join('\n');
-  const text = `QUALITY CARE GROUP — AUDIT REPORT\n===================================\nClient: ${name}\nTotal Score: ${total} ${denom}\n\nCALL TYPES IDENTIFIED\n${(lastResult.callTypes||[]).join(', ')}\n\nCOMPLIANCE\n${flags}\n\nSUMMARY\n${summary}\n\nSTRENGTHS\n${list('rStrengths')}\n\nGAPS & CONCERNS\n${list('rGaps')}\n\nHANDLER DEVELOPMENT PLAN\n${list('rDevPlan')}`;
+  const text = `QUALITY CARE GROUP — AUDIT REPORT\n===================================\nClient: ${name}\nTotal Score: ${total} ${denom}\n\nCALL TYPES IDENTIFIED\n${(lastResult.callTypes||[]).join(', ')}\n\nCOMPLIANCE\n${flags}\n\nSUMMARY\n${summary}\n\nSTRENGTHS\n${list('rStrengths')}\n\nGAPS & CONCERNS\n${list('rGaps')}\n\nNEXT STEPS\n${list('rNextSteps')}\n\nHANDLER DEVELOPMENT PLAN\n${list('rDevPlan')}`;
 
   const ta = document.createElement('textarea');
   ta.value = text;
@@ -2218,11 +2275,13 @@ async function addHandlerToTeam(ti) {
   if (!name) return;
   const teamId = sessionTeams[ti].id;
   const existing = handlersByName[name];
+  let err;
   if (existing) {
-    await sb.from('handlers').update({ team_id: teamId }).eq('id', existing.id);
+    ({ error: err } = await sb.from('handlers').update({ team_id: teamId }).eq('id', existing.id));
   } else {
-    await sb.from('handlers').insert({ name, team_id: teamId });
+    ({ error: err } = await sb.from('handlers').insert({ name, team_id: teamId }));
   }
+  if (err) { alert('Could not add handler: ' + err.message); return; }
   input.value = '';
   await loadHandlersCache();
   renderTeamsView();
@@ -2231,7 +2290,10 @@ async function addHandlerToTeam(ti) {
 
 async function removeHandlerFromTeam(ti, name) {
   const h = handlersByName[name];
-  if (h) await sb.from('handlers').update({ team_id: null }).eq('id', h.id);
+  if (h) {
+    const { error } = await sb.from('handlers').update({ team_id: null }).eq('id', h.id);
+    if (error) { alert('Could not unassign handler: ' + error.message); return; }
+  }
   await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
@@ -2241,7 +2303,10 @@ async function moveToTeam(name, ti) {
   if (ti === '') return;
   const h = handlersByName[name];
   const teamId = sessionTeams[parseInt(ti)].id;
-  if (h) await sb.from('handlers').update({ team_id: teamId }).eq('id', h.id);
+  if (h) {
+    const { error } = await sb.from('handlers').update({ team_id: teamId }).eq('id', h.id);
+    if (error) { alert('Could not move handler: ' + error.message); return; }
+  }
   await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
@@ -2254,7 +2319,10 @@ async function removeUnassigned(name) {
   // handler_id references this row with ON DELETE SET NULL.
   if (!confirm(`Permanently delete handler "${name}"? This cannot be undone. Their past audits will keep their scores but lose the handler name link.`)) return;
   const h = handlersByName[name];
-  if (h) await sb.from('handlers').delete().eq('id', h.id);
+  if (h) {
+    const { error } = await sb.from('handlers').delete().eq('id', h.id);
+    if (error) { alert('Could not delete handler: ' + error.message); return; }
+  }
   await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
@@ -2263,7 +2331,8 @@ async function removeUnassigned(name) {
 async function renameTeam(ti) {
   const name = prompt('New team name:', sessionTeams[ti].name);
   if (!name || !name.trim()) return;
-  await sb.from('teams').update({ name: name.trim() }).eq('id', sessionTeams[ti].id);
+  const { error } = await sb.from('teams').update({ name: name.trim() }).eq('id', sessionTeams[ti].id);
+  if (error) { alert('Could not rename team: ' + error.message); return; }
   await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
@@ -2324,12 +2393,18 @@ async function saveToStorage() {
 
     // Keep the case row's current state in sync (name/handler/renewal may have
     // been edited on this pass, and audited/in_progress flags update here)
-    await sb.from('cases').update({
+    const { error: caseUpdateError } = await sb.from('cases').update({
       ref: c.ref, name: c.name, handler_id: handlerId,
       renewal_date: c.renewal || null, policy_type: c.policyType || null,
       phones: c.phones || [], audited: true, in_progress: false,
       updated_at: new Date().toISOString()
     }).eq('id', c.id);
+
+    if (caseUpdateError) {
+      console.warn('Case update failed:', caseUpdateError);
+      showStorageStatus('⚠ Save failed — case could not be updated');
+      return;
+    }
 
     // Every call to saveToStorage() writes a new audits row — this matches
     // the original localStorage behaviour exactly (SOF ticks, compliance
@@ -2344,7 +2419,7 @@ async function saveToStorage() {
       call_types: c.result.callTypes || [], scores: c.result.scores,
       compliance: c.result.compliance, business_solutions: c.result.businessSolutions,
       sof_data: c.sofData || null, summary: c.result.summary,
-      strengths: c.result.strengths || [], gaps: c.result.gaps || [], dev_plan: c.result.devPlan || []
+      strengths: c.result.strengths || [], gaps: c.result.gaps || [], next_steps: c.result.nextSteps || [], dev_plan: c.result.devPlan || []
     });
 
     if (error) { console.warn('Audit save failed:', error); return; }
@@ -2374,7 +2449,7 @@ async function loadHistory() {
       compGrade: a.comp_grade, compFails: a.comp_fails,
       callTypes: a.call_types || [], scores: a.scores, compliance: a.compliance,
       businessSolutions: a.business_solutions, sofData: a.sof_data,
-      summary: a.summary, gaps: a.gaps, devPlan: a.dev_plan
+      summary: a.summary, gaps: a.gaps, nextSteps: a.next_steps, devPlan: a.dev_plan
     };
   });
 }
@@ -2418,7 +2493,7 @@ async function importHistory(input) {
           comp_grade: r.compGrade, comp_fails: r.compFails,
           call_types: r.callTypes || [], scores: r.scores, compliance: r.compliance,
           business_solutions: r.businessSolutions, sof_data: r.sofData || null,
-          summary: r.summary, strengths: r.strengths || [], gaps: r.gaps || [], dev_plan: r.devPlan || []
+          summary: r.summary, strengths: r.strengths || [], gaps: r.gaps || [], next_steps: r.nextSteps || [], dev_plan: r.devPlan || []
         };
       });
       const { data, error } = await sb.from('audits').insert(rowsToInsert).select();
@@ -3227,12 +3302,6 @@ ${compFails>0?`<div style="background:${gradeBg};border:1px solid ${gradeBorder}
 <table>${scoresHTML}</table>
 
 ${bsHTML?`<h2>Business Solutions</h2><table>${bsHTML}</table>`:''}
-
-${r.sofCoverage?`<h2>SOF Coverage</h2>
-<div style="background:${r.sofCoverage.overall==='good'?'#edf7f2':r.sofCoverage.overall==='partial'?'#fdf6e3':'#fdf0f0'};border:1px solid ${r.sofCoverage.overall==='good'?'#a3d9bc':r.sofCoverage.overall==='partial'?'#f5d07a':'#f5a9a9'};border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:4px">
-  <strong style="text-transform:capitalize">${r.sofCoverage.overall||'—'}</strong> — ${r.sofCoverage.note||''}
-  ${(r.sofCoverage.gaps||[]).map(g=>`<div style="color:#9b1f1f;margin-top:4px">⚠ ${g}</div>`).join('')}
-</div>`:''}
 
 <h2>Summary</h2>
 <p style="font-size:13px;line-height:1.7;margin:0">${r.summary||''}</p>
