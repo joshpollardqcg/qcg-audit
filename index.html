@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --qc:#AC4B82;--qc-light:#f7eef4;--qc-mid:#d9a0c0;--qc-dark:#7a2f5b;
@@ -191,6 +192,23 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .next-steps-list li::before{background:var(--ok)}
 .edit-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:10px;font-weight:500;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s}
 .edit-btn:hover{border-color:var(--qc);color:var(--qc)}
+.report-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:8px 18px;cursor:pointer;margin-bottom:-2px;transition:all .15s}
+.report-tab:hover{color:var(--text)}
+.report-tab.active{color:var(--qc);border-bottom-color:var(--qc);font-weight:600}
+.rpt-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px}
+.rpt-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
+.rpt-stat{display:flex;flex-direction:column;align-items:center;gap:3px}
+.rpt-stat-num{font-family:'Lora',serif;font-size:28px;font-weight:600;line-height:1}
+.rpt-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.heatmap-cell{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;gap:12px}
+.heatmap-bar{flex:1;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.heatmap-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.comp-gap-row{display:grid;grid-template-columns:160px 80px 1fr;gap:12px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px}
+.comp-gap-row.header{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 12px;background:var(--bg);border-radius:6px 6px 0 0}
+.flag-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase}
+.flag-pill.fail{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border)}
+.flag-pill.pass{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border)}
+.flag-pill.na{background:var(--bg);color:var(--muted);border:1px solid var(--border2)}
 
 /* PRINT / PDF STYLES */
 @media print {
@@ -287,26 +305,48 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
   <div class="hd"></div>
   <span class="htitle">Deep Dive Audit Tool</span>
   <div class="hbadge"><div class="hdot"></div>AI-Powered</div>
+  <div id="userBadge" style="display:none;align-items:center;gap:10px;margin-left:12px">
+    <span id="userBadgeName" style="font-size:12px;color:var(--muted);font-weight:500"></span>
+    <button onclick="logout()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer">Log out</button>
+  </div>
 </header>
+
+<!-- ══ LOGIN GATE ══ -->
+<div id="loginGate" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center">
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:36px 32px;width:340px;max-width:90vw;box-shadow:var(--shadow-md)">
+    <div style="font-family:'Lora',serif;font-size:19px;font-weight:500;margin-bottom:4px;color:var(--qc-dark)">Quality Care Group</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px">Deep Dive Audit Tool — sign in</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="f"><label>Email</label><input type="email" id="loginEmail" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()"></div>
+      <div class="f"><label>Password</label><input type="password" id="loginPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    </div>
+    <div id="loginError" style="display:none;color:var(--danger);font-size:12px;margin-top:10px"></div>
+    <button onclick="doLogin()" id="loginBtn" style="width:100%;margin-top:16px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer">Sign in</button>
+    <div style="font-size:11px;color:var(--muted2);margin-top:14px;line-height:1.5">Don't have an account yet? Ask your team admin to set one up.</div>
+  </div>
+</div>
 
 <div class="tabs">
   <div class="tab active" id="tabQueue" onclick="switchView('queue')">📋 Audit Queue <span class="tab-count" id="queueCountTab">0</span></div>
   <div class="tab" id="tabAudit" onclick="switchView('audit')" style="display:none">🎙 Audit Case</div>
   <div class="tab" id="tabDashboard" onclick="switchView('dashboard')">📊 Trends</div>
+  <div class="tab" id="tabReports" onclick="switchView('reports')">📑 Reports</div>
   <div class="tab" id="tabHandlers" onclick="switchView('handlers')">👥 Teams &amp; Handlers</div>
 </div>
 
 <!-- ══ QUEUE VIEW ══ -->
 <div class="view active" id="viewQueue">
   <div class="queue-wrap">
-    <!-- EXPORT REMINDER BANNER -->
-    <div id="exportReminder" style="display:none;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--warn)">⚠ Unsaved audit data</div>
-        <div id="exportReminderSub" style="font-size:12px;color:var(--warn);margin-top:2px">Export your data to keep a safe backup</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div id="exportReminder" style="display:none;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:8px;padding:10px 14px;flex:1;margin-right:12px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--warn)">⚠ Unsaved audit data</div>
+            <div id="exportReminderSub" style="font-size:12px;color:var(--warn);margin-top:2px">Export your data to keep a safe backup</div>
+          </div>
+          <button onclick="exportCSV()" style="background:var(--warn);color:white;border:none;border-radius:7px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;white-space:nowrap">↗ Export CSV now</button>
+        </div>
+        <button id="anonBtn" onclick="toggleAnonymise()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;white-space:nowrap">👁 Anonymise view</button>
       </div>
-      <button onclick="exportCSV()" style="background:var(--warn);color:white;border:none;border-radius:7px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;white-space:nowrap">↗ Export CSV now</button>
-    </div>
 
     <div class="queue-header">
       <div>
@@ -585,16 +625,6 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           </div>
         </div>
 
-        <div class="narrative-card">
-          <h3 style="display:flex;align-items:center;justify-content:space-between">Recommended next steps <button onclick="toggleEditList('rNextSteps','nextSteps')" class="edit-btn">✏ Edit</button></h3>
-          <ul class="narrative-list next-steps-list" id="rNextSteps"></ul>
-          <textarea id="rNextStepsEdit" style="display:none;width:100%;min-height:80px;margin-top:8px;font-size:12px;resize:vertical" placeholder="One item per line"></textarea>
-          <div id="rNextStepsEditBtns" style="display:none;gap:6px;margin-top:6px;justify-content:flex-end">
-            <button onclick="saveEditList('rNextSteps','nextSteps')" style="background:var(--qc);color:white;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer">Save</button>
-            <button onclick="cancelEdit('rNextSteps')" style="background:transparent;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Cancel</button>
-          </div>
-        </div>
-
         <!-- AUDIT ASSISTANT -->
         <div class="narrative-card" id="auditAssistantCard">
           <h3>💬 Audit Assistant</h3>
@@ -707,7 +737,147 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 <!-- PRINT AREA -->
 <div id="printArea" style="display:none"></div>
 
+<!-- ══ REPORTS VIEW ══ -->
+<div class="view" id="viewReports">
+  <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
+
+    <div style="font-family:'Lora',serif;font-size:20px;font-weight:500;margin-bottom:20px">Reports</div>
+
+    <!-- REPORT TABS -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px">
+      <button class="report-tab active" id="rtab-handler" onclick="switchReportTab('handler')">Individual Handler</button>
+      <button class="report-tab" id="rtab-team" onclick="switchReportTab('team')">Team</button>
+      <button class="report-tab" id="rtab-compliance" onclick="switchReportTab('compliance')">Compliance</button>
+      <button class="report-tab" id="rtab-bs" onclick="switchReportTab('bs')">Business Solutions</button>
+    </div>
+
+    <!-- HANDLER REPORT -->
+    <div id="rpanel-handler">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <select id="rptHandler" onchange="renderHandlerReport()" style="font-size:13px;padding:8px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);min-width:180px">
+          <option value="">Select handler...</option>
+        </select>
+        <select id="rptHandlerPeriod" onchange="renderHandlerReport()" style="font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg)">
+          <option value="all">All time</option>
+          <option value="90">Last 90 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button onclick="exportHandlerReport()" class="sec-btn">⬇ Export report</button>
+      </div>
+      <div id="handlerReportContent"><div class="empty-dash">Select a handler to view their report.</div></div>
+    </div>
+
+    <!-- TEAM REPORT -->
+    <div id="rpanel-team" style="display:none">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <select id="rptTeam" onchange="renderTeamReport()" style="font-size:13px;padding:8px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);min-width:180px">
+          <option value="all">All teams</option>
+        </select>
+        <select id="rptTeamPeriod" onchange="renderTeamReport()" style="font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg)">
+          <option value="all">All time</option>
+          <option value="90">Last 90 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button onclick="exportTeamReport()" class="sec-btn">⬇ Export report</button>
+      </div>
+      <div id="teamReportContent"><div class="empty-dash">Select a team to view their report.</div></div>
+    </div>
+
+    <!-- COMPLIANCE REPORT -->
+    <div id="rpanel-compliance" style="display:none">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <select id="rptCompPeriod" onchange="renderComplianceReport()" style="font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg)">
+          <option value="all">All time</option>
+          <option value="90">Last 90 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button onclick="exportComplianceReport()" class="sec-btn">⬇ Export CSV</button>
+      </div>
+      <div id="complianceReportContent"><div class="empty-dash">Loading...</div></div>
+    </div>
+
+    <!-- BUSINESS SOLUTIONS REPORT -->
+    <div id="rpanel-bs" style="display:none">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <select id="rptBSPeriod" onchange="renderBSReport()" style="font-size:12px;padding:7px 12px;border-radius:7px;border:1px solid var(--border2);background:var(--bg)">
+          <option value="all">All time</option>
+          <option value="90">Last 90 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button onclick="exportBSReport()" class="sec-btn">⬇ Export CSV</button>
+      </div>
+      <div id="bsReportContent"><div class="empty-dash">Loading...</div></div>
+    </div>
+
+  </div>
+</div>
+
 <script>
+// ── SUPABASE CLIENT + AUTH ─────────────────────────────────────────
+const SUPABASE_URL = 'https://pjnsksfabwujjjfydhur.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqbnNrc2ZhYnd1ampqZnlkaHVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NTk1MDAsImV4cCI6MjEwMzEzNTUwMH0.-NIOGKuL1nCNVWhPhiBA43Rq8bf-Ftc8xMZ_uxr9moI';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentHandlerRow = null; // the row from `handlers` table matching the logged-in user
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Enter your email and password.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  await onAuthed(data.user);
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentHandlerRow = null;
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('loginGate').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+async function onAuthed(user) {
+  // Look up the handlers row linked to this login
+  const { data: handlerRow, error } = await sb
+    .from('handlers')
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (error || !handlerRow) {
+    document.getElementById('loginError').textContent = 'Your login isn\'t linked to a handler record yet. Ask your admin to link your account.';
+    document.getElementById('loginError').style.display = 'block';
+    await sb.auth.signOut();
+    return;
+  }
+
+  currentHandlerRow = handlerRow;
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('userBadgeName').textContent = handlerRow.name + (handlerRow.is_admin ? ' (admin)' : '');
+
+  // App init, now that we know who's logged in
+  renderHandlerSelect();
+  initCallSlots();
+  loadQueueFromStorage();
+}
+
+// On page load, check for an existing session before showing the login form
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session) { onAuthed(session.user); }
+});
+
 // ── CONSTANTS ──────────────────────────────────────────────────────
 const DEFAULT_TEAMS = [
   {
@@ -724,7 +894,6 @@ const DEFAULT_TEAMS = [
   }
 ];
 
-// Unassigned handlers (not yet in a team)
 const DEFAULT_UNASSIGNED = ['Ben Simmonds'];
 
 const SCORE_LABELS = {
@@ -751,8 +920,7 @@ const BS_LABELS = {
   sales:       { label:'Sales',        question:'What does your 5 year plan look like for the business?' }
 };
 
-// ── STATE ──────────────────────────────────────────────────────────
-let allMonthBatches = {}; // { 'YYYY-MM': [cases] }
+let allMonthBatches = {};
 let currentMonth = getCurrentMonthKey();
 let cases = [];
 let currentCaseIdx = null;
@@ -773,7 +941,6 @@ function monthKeyToLabel(key) {
   return new Date(y, parseInt(m)-1, 1).toLocaleDateString('en-GB', { month:'long', year:'numeric' });
 }
 
-// Policy types where RV is not applicable (no building covered or indemnity basis)
 const DOM_TYPES = ['HOMC','HCDO','CHDO','CHEX','CHTE','GITE','CHEG','GICA','GIRE'];
 
 function getSelectedPolicyTypes() {
@@ -782,7 +949,6 @@ function getSelectedPolicyTypes() {
 
 function isRVNotApplicable(policyTypes) {
   if (!policyTypes || !policyTypes.length) return false;
-  // RV is N/A only if ALL selected policy types are in DOM_TYPES (none cover buildings with RV)
   return policyTypes.every(pt => DOM_TYPES.includes(pt.toUpperCase().trim()));
 }
 
@@ -796,18 +962,15 @@ function updateRVFromPolicyType() {
   }
 }
 
-// Helper: get all handlers across all teams
 function allHandlers() {
   return [...sessionTeams.flatMap(t => t.handlers), ...sessionUnassigned].sort();
 }
 
-// Helper: get team name for a handler
 function handlerTeam(name) {
   const t = sessionTeams.find(t => t.handlers.includes(name));
   return t ? t.name : 'Unassigned';
 }
 
-// ── VIEW SWITCHING ─────────────────────────────────────────────────
 function switchView(v) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -818,6 +981,7 @@ function switchView(v) {
   if (v === 'queue') renderQueue();
   if (v === 'dashboard') { populateTeamFilter(); renderDashboard(); initTrendsSuggestions(); }
   if (v === 'handlers') renderTeamsView();
+  if (v === 'reports') { populateHandlerSelect(); populateTeamReportSelect(); switchReportTab('handler'); }
 }
 
 function populateTeamFilter() {
@@ -830,7 +994,6 @@ function populateTeamFilter() {
   if (cur) sel.value = cur;
 }
 
-// ── MONTH MANAGEMENT ──────────────────────────────────────────────
 function renderMonthSelect() {
   const sel = document.getElementById('monthSelect');
   const keys = Object.keys(allMonthBatches).sort().reverse();
@@ -846,7 +1009,6 @@ function renderMonthSelect() {
 }
 
 function switchMonth(key) {
-  // Save current cases back to batch before switching
   allMonthBatches[currentMonth] = cases;
   currentMonth = key;
   cases = allMonthBatches[key] || [];
@@ -856,11 +1018,8 @@ function switchMonth(key) {
 
 function addNewMonth() {
   const now = new Date();
-  // Suggest next month
   const next = new Date(now.getFullYear(), now.getMonth()+1, 1);
   const key = next.getFullYear() + '-' + String(next.getMonth()+1).padStart(2,'0');
-  const label = next.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
-  // Simple confirm — use a styled input fallback since confirm() may be blocked
   allMonthBatches[key] = allMonthBatches[key] || [];
   currentMonth = key;
   cases = allMonthBatches[key];
@@ -869,16 +1028,12 @@ function addNewMonth() {
   saveQueueToStorage();
 }
 
-// ── EXPORT CSV ─────────────────────────────────────────────────────
 function exportCSV() {
-  // Export all months' audited cases as a CSV
   const allCases = Object.entries(allMonthBatches).flatMap(([month, batch]) =>
     (batch || []).filter(c => c.audited).map(c => ({ ...c, month }))
   );
-  // Also include current month
   const currentAudited = cases.filter(c => c.audited).map(c => ({ ...c, month: currentMonth }));
   const combined = [...allCases, ...currentAudited];
-  // Deduplicate by ref+auditedAt
   const seen = new Set();
   const unique = combined.filter(c => {
     const k = (c.ref||'') + '_' + (c.auditedAt||'');
@@ -970,7 +1125,6 @@ function updateExportReminder() {
 
 async function saveQueueToStorage() {
   try {
-    // Save all month batches including current
     const allBatches = { ...allMonthBatches, [currentMonth]: cases };
     await storageSet('qcg-all-batches', allBatches);
     await storageSet('qcg-current-month', currentMonth);
@@ -999,12 +1153,10 @@ async function loadQueueFromStorage() {
   } catch(e) { console.warn('Queue restore failed:', e); renderMonthSelect(); }
 }
 
-// ── QUEUE ──────────────────────────────────────────────────────────
 function copyPhone(e, number) {
   e.stopPropagation();
   const chip = e.currentTarget;
 
-  // Use execCommand fallback which works without HTTPS
   const ta = document.createElement('textarea');
   ta.value = number;
   ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
@@ -1015,12 +1167,10 @@ function copyPhone(e, number) {
   try { success = document.execCommand('copy'); } catch(err) {}
   document.body.removeChild(ta);
 
-  // Also try modern clipboard API if available
   if (!success && navigator.clipboard) {
     navigator.clipboard.writeText(number).catch(() => {});
   }
 
-  // Visual feedback regardless
   const original = chip.textContent;
   chip.textContent = '✓ Copied';
   chip.style.background = 'var(--ok-bg)';
@@ -1095,14 +1245,12 @@ function openCase(idx) {
   document.getElementById('clientRef').value = c.ref || '';
   document.getElementById('clientName').value = c.name || '';
   document.getElementById('renewalDate').value = normaliseDate(c.renewal || '');
-  document.getElementById('policyType')?.remove(); // remove old select if exists
-  // Restore policy type checkboxes
+  document.getElementById('policyType')?.remove();
   const savedTypes = (c.policyType || '').split(', ').filter(Boolean);
   document.querySelectorAll('.policy-type-cb').forEach(cb => {
     cb.checked = savedTypes.includes(cb.value);
   });
   updateRVFromPolicyType();
-  // Restore SOF fields if previously saved
   const sof = c.sofData || {};
   ['sofSent','sofReturned','sofHow'].forEach(id => {
     const el = document.getElementById(id);
@@ -1120,7 +1268,6 @@ function openCase(idx) {
   document.getElementById('auditAssistantCard').style.display = 'none';
   document.getElementById('auditChatMessages').innerHTML = '';
 
-  // Restore previous audit results if available
   if (c.audited && c.result) {
     lastResult = c.result;
     render(c.result, c.name || 'Unknown Client', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
@@ -1186,31 +1333,23 @@ function clearQueue() {
   }
 }
 
-// ── DATE NORMALISATION ─────────────────────────────────────────────
-// Converts any common date format to YYYY-MM-DD for HTML date inputs
 function normaliseDate(val) {
   if (!val) return '';
-  // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-  // DD/MM/YYYY or DD-MM-YYYY
   const dmy = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
   if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
-  // MM/DD/YYYY
   const mdy = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
   if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
-  // Excel serial number (days since 1900-01-01)
   if (/^\d{4,5}$/.test(val)) {
     const serial = parseInt(val);
     const date = new Date((serial - 25569) * 86400 * 1000);
     if (!isNaN(date)) return date.toISOString().split('T')[0];
   }
-  // Try native Date parse as last resort
   const d = new Date(val);
   if (!isNaN(d)) return d.toISOString().split('T')[0];
   return '';
 }
 
-// ── ACTURIS IMPORT (CSV + XLS/XLSX via SheetJS) ────────────────────
 async function importActuris(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1222,7 +1361,6 @@ async function importActuris(input) {
     const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
     const col = name => headers.findIndex(h => h === name.toLowerCase());
 
-    // Exact matches for known Acturis export format
     const refCol      = col('client reference');
     const nameCol     = col('client name');
     const phone1Col   = col('phone number 1');
@@ -1232,7 +1370,6 @@ async function importActuris(input) {
     const renewCol    = col('renewal date');
     const policyCol   = col('policy type') > -1 ? col('policy type') : col('type');
 
-    // Helper: only keep value if it looks like a phone number (not a name)
     const isPhone = v => v && /^[\+\d][\d\s\+\(\)\-\.]{5,}$/.test(v.trim());
 
     let imported = 0;
@@ -1241,7 +1378,6 @@ async function importActuris(input) {
       if (!row || !row.length || row.every(c => !c)) continue;
       const g = idx => (idx > -1 && row[idx] != null ? String(row[idx]).trim() : '');
       const handlerVal = g(handlerCol);
-      // Reject a phone value if it's not numeric OR if it matches any known handler name
       const knownHandlers = allHandlers();
       const safePhone = idx => {
         const v = g(idx);
@@ -1267,7 +1403,6 @@ async function importActuris(input) {
   };
 
   if (isExcel) {
-    // Use SheetJS to parse XLS/XLSX
     if (typeof XLSX === 'undefined') {
       showImportError('Excel support is loading, please try again in a moment.');
       return;
@@ -1290,7 +1425,6 @@ async function importActuris(input) {
     reader.readAsArrayBuffer(file);
     input.value = '';
   } else {
-    // CSV
     const reader = new FileReader();
     reader.onload = async e => {
       const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
@@ -1328,7 +1462,6 @@ function showImportError(msg) {
 }
 
 function showSheetPicker(wb, processRows) {
-  // Build modal
   const overlay = document.createElement('div');
   overlay.id = 'sheetPickerOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;display:flex;align-items:center;justify-content:center';
@@ -1365,7 +1498,6 @@ function showSheetPicker(wb, processRows) {
   });
 }
 
-// ── CALL SLOTS ─────────────────────────────────────────────────────
 function initCallSlots() {
   const container = document.getElementById('callSlots');
   container.innerHTML = '';
@@ -1396,7 +1528,6 @@ function initCallSlots() {
 
 function pasteFromClipboard(i) {
   const ta = document.getElementById('slotText' + i);
-  // Auto-expand slot if collapsed
   const body = document.getElementById('slotBody' + i);
   if (body.classList.contains('collapsed')) toggleSlot(i);
 
@@ -1450,7 +1581,6 @@ function clearSlot(i) {
   updateSlotStatus(i);
 }
 
-// ── IMAGE HANDLING ─────────────────────────────────────────────────
 function handleImageFile(file) {
   if (!file || !file.type.startsWith('image/')) return;
   const reader = new FileReader();
@@ -1481,7 +1611,6 @@ dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dra
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleImageFile(e.dataTransfer.files[0]); });
 
-// Allow paste directly on the drop zone when clicked/focused
 dz.addEventListener('paste', e => {
   e.preventDefault();
   e.stopPropagation();
@@ -1494,13 +1623,10 @@ dz.addEventListener('paste', e => {
   }
 });
 
-// Global paste — fires when no input/textarea is focused
 document.addEventListener('paste', e => {
   const tag = document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  // Only handle if we're on the audit view
   if (!document.getElementById('viewAudit').classList.contains('active')) return;
-  // Don't intercept if image already loaded
   if (imageBase64) return;
 
   const clipData = e.clipboardData || e.originalEvent.clipboardData;
@@ -1518,7 +1644,6 @@ document.addEventListener('paste', e => {
   }
 });
 
-// ── AUDIT ──────────────────────────────────────────────────────────
 function scoreColor(p) {
   if (p >= 0.67) return '#1a7a4a';
   if (p >= 0.34) return '#8a5a00';
@@ -1541,7 +1666,6 @@ async function runAudit() {
   const rvNA = isRVNotApplicable(selectedPolicyTypes);
   const rvPassedViaSOF = false;
 
-  // Save progress to case
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].inProgress = true;
     cases[currentCaseIdx].name = clientName;
@@ -1593,8 +1717,7 @@ Return ONLY valid JSON with this exact structure — no preamble, no markdown:
   },
   "summary": "2-3 sentences covering the full client journey",
   "strengths": ["specific strength 1", "specific strength 2"],
-  "gaps": ["specific gap 1", "specific gap 2", "specific gap 3"],
-  "nextSteps": ["concrete action 1", "concrete action 2", "concrete action 3"],
+  "gaps": ["specific gap 1", "specific gap 2"],
   "devPlan": ["development point 1", "development point 2", "development point 3"]
 }
 
@@ -1736,7 +1859,6 @@ Generate 3-5 specific, actionable development points for the handler based on th
     lastResult = result;
     render(result, clientName, clientRef, handler, renewalDate);
 
-    // Update case status
     if (currentCaseIdx !== null) {
       const applicable = Object.values(result.scores).filter(v => v.applicable);
       const total = applicable.reduce((s,v) => s+(v.score||0), 0);
@@ -1751,7 +1873,6 @@ Generate 3-5 specific, actionable development points for the handler based on th
       cases[currentCaseIdx].result = result;
       cases[currentCaseIdx].auditedAt = new Date().toISOString();
       cases[currentCaseIdx].policyType = policyType;
-      // Auto-save to persistent storage
       saveToStorage();
     }
   } catch(e) {
@@ -1768,7 +1889,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     const c = document.createElement('span'); c.className = 'meta-chip'; c.textContent = t; meta.appendChild(c);
   });
 
-  // Score — call quality only, no compliance penalty
   const applicable = Object.values(r.scores).filter(v => v.applicable);
   const total = applicable.reduce((s,v) => s+(v.score||0), 0);
   const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
@@ -1779,7 +1899,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   document.getElementById('rTotalNum').textContent = total;
   document.getElementById('rDenom').textContent = '/ ' + maxT;
 
-  // Compliance grade — RV/Cyber/D&O only (MF shown separately)
   const compResults = ['RV','Cyber','DO'].map(k => r.compliance[k]?.result).filter(r => r !== 'na');
   const compFails = compResults.filter(r => r === 'fail').length;
   const compGrade = compFails === 0 ? 'PASS' : compFails === compResults.length ? 'FAIL' : 'PARTIAL';
@@ -1787,7 +1906,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   const gradeBg = compGrade === 'PASS' ? 'var(--ok-bg)' : compGrade === 'PARTIAL' ? 'var(--warn-bg)' : 'var(--danger-bg)';
   const gradeBorder = compGrade === 'PASS' ? 'var(--ok-border)' : compGrade === 'PARTIAL' ? 'var(--warn-border)' : 'var(--danger-border)';
 
-  // Show compliance grade circle
   const penaltyBlock = document.getElementById('penaltyBlock');
   penaltyBlock.style.display = 'block';
   const gradeCircle = document.getElementById('compGradeCircle');
@@ -1798,7 +1916,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   gradeText.textContent = compGrade;
   document.getElementById('adjustedBlock').style.display = 'none';
 
-  // Call type pills
   const banner = document.getElementById('callTypeBanner');
   banner.innerHTML = '<span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;align-self:center">Calls detected:</span>';
   const typeLabels = { sof:'SOF / Fact Find', presentation:'Quote Presentation', close:'Close', combined:'Presentation + Close' };
@@ -1810,7 +1927,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     banner.appendChild(pill);
   });
 
-  // Compliance
   ['RV','Cyber','DO'].forEach(k => {
     const c = r.compliance[k];
     document.getElementById('flag'+k).className = 'flag-card ' + c.result;
@@ -1820,7 +1936,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     document.getElementById('note'+k).textContent = c.note;
   });
 
-  // Score rows grouped by section
   const rows = document.getElementById('scoreRows');
   rows.innerHTML = '';
 
@@ -1848,11 +1963,9 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     });
   });
 
-  // SOF Gap Filler — show only items not covered on the call
   const sofCard = document.getElementById('sofResultCard');
   sofCard.style.display = 'block';
 
-  // Define which AI findings map to which SOF items
   const sofItems = [
     { id:'sofBuilding', label:'Building sum insured / RV or index linking confirmed', relevantIf: () => r.compliance?.RV?.result === 'fail', passesRV: true },
     { id:'sofDirectors', label:'Directors declarations confirmed', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
@@ -1891,7 +2004,6 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     });
   }
 
-  // Development Plan
   const devPlanCard = document.getElementById('devPlanCard');
   const devPlanList = document.getElementById('rDevPlan');
   if (r.devPlan && r.devPlan.length > 0) {
@@ -1903,14 +2015,13 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   }
 
   document.getElementById('rSummary').textContent = r.summary;
-  ['rStrengths','rGaps','rNextSteps','rDevPlan'].forEach((id,i) => {
+  ['rStrengths','rGaps','rDevPlan'].forEach((id,i) => {
     const ul = document.getElementById(id); if (!ul) return; ul.innerHTML = '';
-    ([r.strengths, r.gaps, r.nextSteps, r.devPlan][i]||[]).forEach(t => {
+    ([r.strengths, r.gaps, r.devPlan][i]||[]).forEach(t => {
       const li = document.createElement('li'); li.textContent = t; ul.appendChild(li);
     });
   });
 
-  // Business Solutions
   const bsGrid = document.getElementById('bsGrid');
   bsGrid.innerHTML = '';
   if (r.businessSolutions) {
@@ -1927,11 +2038,9 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     });
   }
 
-  // Show assistant and initialise proactive conversation
   document.getElementById('auditAssistantCard').style.display = 'block';
   initAuditAssistant();
 
-  // Quick action suggestions
   const suggestions = [
     'Draft a coaching email to the handler',
     'This was a quick close for a colleague',
@@ -1984,7 +2093,6 @@ function showError(msg) {
   const el = document.getElementById('errorMsg'); el.textContent = msg; el.style.display = 'block'; setLoading(false);
 }
 
-// ── COPY REPORT ────────────────────────────────────────────────────
 function copyReport() {
   if (!lastResult) return;
   const name  = document.getElementById('rClientName').textContent;
@@ -2009,13 +2117,11 @@ function copyReport() {
   setTimeout(() => b.textContent = '↗ Copy report', 2000);
 }
 
-// ── HANDLERS & TEAMS ──────────────────────────────────────────────
 function renderHandlerSelect() {
   const sel = document.getElementById('handler');
   const cur = sel.value;
   sel.innerHTML = '<option value="">Select handler...</option>';
 
-  // Group by team
   sessionTeams.forEach(team => {
     if (!team.handlers.length) return;
     const grp = document.createElement('optgroup');
@@ -2026,7 +2132,6 @@ function renderHandlerSelect() {
     sel.appendChild(grp);
   });
 
-  // Unassigned
   if (sessionUnassigned.length) {
     const grp = document.createElement('optgroup');
     grp.label = 'Unassigned';
@@ -2044,7 +2149,6 @@ function renderTeamsView() {
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  // Each team block
   sessionTeams.forEach((team, ti) => {
     const block = document.createElement('div');
     block.style.cssText = 'background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:14px';
@@ -2069,7 +2173,6 @@ function renderTeamsView() {
     });
   });
 
-  // Unassigned
   if (sessionUnassigned.length) {
     const block = document.createElement('div');
     block.style.cssText = 'background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:14px;border-left:3px solid var(--warn)';
@@ -2080,14 +2183,12 @@ function renderTeamsView() {
       const tag = document.createElement('div');
       tag.className = 'handler-tag';
 
-      // Build move-to dropdown
       const opts = sessionTeams.map((t,i) => `<option value="${i}">${t.name}</option>`).join('');
       tag.innerHTML = `<span>${h}</span><select onchange="moveToTeam('${h.replace(/'/g,"\\'")}',this.value)" style="font-size:11px;padding:1px 4px;border-radius:4px;border:1px solid var(--border2);background:var(--bg);color:var(--text);cursor:pointer"><option value="">Move to...</option>${opts}</select><button onclick="removeUnassigned('${h.replace(/'/g,"\\'")}')">✕</button>`;
       tagWrap.appendChild(tag);
     });
   }
 
-  // Add new team button
   const addTeam = document.createElement('button');
   addTeam.className = 'sec-btn';
   addTeam.textContent = '+ Add New Team';
@@ -2099,7 +2200,6 @@ function addHandlerToTeam(ti) {
   const input = document.getElementById('newHandlerTeam_' + ti);
   const name = input.value.trim();
   if (!name) return;
-  // Remove from unassigned or other teams first
   sessionUnassigned = sessionUnassigned.filter(h => h !== name);
   sessionTeams.forEach(t => { t.handlers = t.handlers.filter(h => h !== name); });
   sessionTeams[ti].handlers.push(name);
@@ -2131,7 +2231,6 @@ function removeUnassigned(name) {
 }
 
 function renameTeam(ti) {
-  const el = document.querySelector(`#teamsViewWrap .lora-title-${ti}`);
   const name = prompt('New team name:', sessionTeams[ti].name);
   if (name && name.trim()) { sessionTeams[ti].name = name.trim(); renderTeamsView(); renderHandlerSelect(); }
 }
@@ -2144,11 +2243,9 @@ function addTeam_fn() {
   renderHandlerSelect();
 }
 
-// ── PERSISTENT STORAGE ────────────────────────────────────────────
 const STORAGE_KEY = 'qcg-audit-history';
 const QUEUE_KEY   = 'qcg-audit-queue';
 
-// Unified storage: tries window.storage (Claude artifact), falls back to localStorage
 async function storageSet(key, value) {
   const str = JSON.stringify(value);
   try {
@@ -2216,17 +2313,7 @@ async function loadHistory() {
   return (await storageGet(STORAGE_KEY)) || [];
 }
 
-async function loadQueueFromStorage() {
-  try {
-    const saved = await storageGet(QUEUE_KEY);
-    if (!saved || !saved.length) return;
-    cases = saved;
-    renderQueue();
-    showStorageStatus('✓ Queue restored — ' + saved.length + ' cases from last session');
-  } catch(e) { console.warn('Queue restore failed:', e); }
-}
-
-function showStorageStatus(msg) {
+async function showStorageStatus(msg) {
   const el = document.getElementById('storageStatus');
   if (!el) return;
   el.textContent = msg; el.style.display = 'block';
@@ -2265,7 +2352,6 @@ async function importHistory(input) {
   reader.readAsText(file);
 }
 
-// ── DASHBOARD ──────────────────────────────────────────────────────
 async function renderDashboard() {
   const history = await loadHistory();
   const days = parseInt(document.getElementById('dashPeriod').value) || 0;
@@ -2274,7 +2360,6 @@ async function renderDashboard() {
 
   let data = cutoff ? history.filter(r => new Date(r.auditedAt) >= cutoff) : history;
 
-  // Apply team filter
   if (teamFilter !== 'all') {
     const team = sessionTeams.find(t => t.id === teamFilter);
     if (team) data = data.filter(r => team.handlers.includes(r.handler));
@@ -2300,14 +2385,12 @@ function renderTeamStats(data) {
   const avgScore = data.reduce((s,r) => s + (r.scorePct||0), 0) / data.length;
   const audited = data.length;
 
-  // Handler with most improvement (last 30 days vs before)
   const recent = data.filter(r => new Date(r.auditedAt) >= new Date(Date.now() - 30*86400000));
   const older  = data.filter(r => new Date(r.auditedAt) < new Date(Date.now() - 30*86400000));
   const recentAvg = recent.length ? recent.reduce((s,r) => s+(r.scorePct||0),0)/recent.length : null;
   const olderAvg  = older.length  ? older.reduce((s,r)  => s+(r.scorePct||0),0)/older.length  : null;
   const trend = recentAvg !== null && olderAvg !== null ? ((recentAvg - olderAvg) * 100).toFixed(1) : null;
 
-  // Compliance fail rate
   const failCount = data.filter(r =>
     r.compliance && (r.compliance.RV?.result === 'fail' || r.compliance.Cyber?.result === 'fail' || r.compliance.DO?.result === 'fail')
   ).length;
@@ -2401,7 +2484,6 @@ function renderHandlerTable(data, teamFilter) {
     });
   });
 
-  // Sort by team then name
   const sorted = Object.entries(handlers).sort((a,b) => {
     if (a[1].team !== b[1].team) return a[1].team.localeCompare(b[1].team);
     return a[0].localeCompare(b[0]);
@@ -2470,7 +2552,6 @@ function renderMonthlyTrend(data) {
 function onSOFChange() {
   if (!lastResult) return;
 
-  // Update RV if building ticked
   const buildingTicked = document.getElementById('sofBuilding')?.checked;
   if (buildingTicked && lastResult.compliance?.RV?.result === 'fail') {
     lastResult.compliance.RV = { result: 'pass', note: 'Building sum insured / RV / index linking confirmed via SOF' };
@@ -2478,17 +2559,14 @@ function onSOFChange() {
     render(lastResult, c.name||'Unknown', c.ref||'N/A', c.handler||'Unknown', c.renewal||'');
   }
 
-  // Update Material Facts flag based on relevant ticked items
   const sofIds = ['sofBuilding','sofDirectors','sofCQC','sofBeds','sofStaff','sofChanges'];
   const relevantIds = sofIds.filter(id => document.getElementById(id) !== null);
-  // Only count items that are actually shown in the gap filler (i.e. relevant to this case)
   const shownItems = relevantIds.filter(id => {
     const el = document.getElementById(id);
     return el && el.closest('#sofGapItems') && el.closest('#sofGapItems').style.display !== 'none';
   });
 
   if (shownItems.length === 0) {
-    // All covered on call — MF pass
     updateMFFlag('pass', 'All material facts covered on the call');
   } else {
     const ticked = shownItems.filter(id => document.getElementById(id)?.checked);
@@ -2501,7 +2579,6 @@ function onSOFChange() {
     }
   }
 
-  // Save SOF data
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].sofData = {
       sofSent: document.getElementById('sofSent')?.value || '',
@@ -2529,7 +2606,6 @@ function updateMFFlag(result, note) {
   noteEl.textContent = note;
 }
 
-// ── AUDIT ASSISTANT ────────────────────────────────────────────────
 let auditChatHistory = [];
 
 function initAuditAssistant() {
@@ -2555,7 +2631,6 @@ function initAuditAssistant() {
     overrideTitle.textContent = 'Report overrides — click to adjust if not relevant to this call:';
     overrideWrap.appendChild(overrideTitle);
 
-    // Compliance fails
     if (compFails.length > 0) {
       const compSection = document.createElement('div');
       compSection.style.cssText = 'display:flex;flex-direction:column;gap:6px';
@@ -2589,7 +2664,6 @@ function initAuditAssistant() {
       overrideWrap.appendChild(compSection);
     }
 
-    // Business solutions not asked
     if (bsNotAsked.length > 0) {
       const bsSection = document.createElement('div');
       bsSection.style.cssText = 'display:flex;flex-direction:column;gap:6px';
@@ -2598,7 +2672,6 @@ function initAuditAssistant() {
       bsLabel.textContent = 'Business Solutions — not asked';
       bsSection.appendChild(bsLabel);
 
-      // Set all to N/A button
       const allNaBtn = document.createElement('button');
       allNaBtn.style.cssText = 'background:var(--bg);border:1px solid var(--border2);color:var(--muted);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer;width:fit-content';
       allNaBtn.textContent = 'Set all to N/A';
@@ -2608,7 +2681,6 @@ function initAuditAssistant() {
         allNaBtn.disabled = true;
         allNaBtn.style.color = 'var(--ok)';
         allNaBtn.style.borderColor = 'var(--ok-border)';
-        // Also disable individual buttons
         bsSection.querySelectorAll('.bs-override-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.35'; });
       };
       bsSection.appendChild(allNaBtn);
@@ -2636,7 +2708,6 @@ function initAuditAssistant() {
     messages.appendChild(overrideWrap);
   }
 
-  // Proactive opening message
   let opening = `I've reviewed the audit for **${c.name || 'this case'}**.`;
   if (compFails.length > 0) opening += ` There ${compFails.length === 1 ? 'is' : 'are'} **${compFails.length} compliance fail${compFails.length > 1 ? 's' : ''}** — use the override buttons above if any aren't relevant to this case.`;
   if (bsNotAsked.length > 0) opening += ` **${bsNotAsked.length} Business Solution${bsNotAsked.length > 1 ? 's were' : ' was'} not asked** — set to N/A above if this wasn't a suitable call for those conversations.`;
@@ -2710,7 +2781,6 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
     auditChatHistory.push({ role:'assistant', content: reply });
     thinking.remove();
 
-    // Check if reply contains adjusted scores — try multiple formats
     const adjustedMatch = reply.match(/ADJUSTED_SCORES:\s*(\{[\s\S]+?\})\s*$/m) ||
                           reply.match(/ADJUSTED_SCORES:(\{[\s\S]+\})/s);
     const displayReply = adjustedMatch
@@ -2720,7 +2790,6 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
     const replyEl = addChatMsg('auditChatMessages', displayReply, 'assistant');
     replyEl.style.whiteSpace = 'pre-line';
 
-    // Try JSON parse for full score adjustments if present
     if (adjustedMatch) {
       try {
         const adjusted = JSON.parse(adjustedMatch[1]);
@@ -2767,21 +2836,18 @@ function applyComplianceOverride(key, result, note, btn, siblingBtn) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
   }
-  // Update clicked button
   btn.textContent = '✓ ' + (result === 'na' ? 'N/A' : 'Pass') + ' applied';
   btn.disabled = true;
   btn.style.background = result === 'na' ? 'var(--warn-bg)' : 'var(--ok-bg)';
   btn.style.borderColor = result === 'na' ? 'var(--warn-border)' : 'var(--ok-border)';
   btn.style.color = result === 'na' ? 'var(--warn)' : 'var(--ok)';
   btn.style.cursor = 'default';
-  // Disable sibling
   if (siblingBtn) { siblingBtn.disabled = true; siblingBtn.style.opacity = '0.35'; siblingBtn.style.cursor = 'default'; }
 }
 
 function applyAdjustedScores(adjusted, btn) {
   if (!lastResult) return;
 
-  // Merge adjusted scores into lastResult
   if (adjusted.scores) {
     Object.entries(adjusted.scores).forEach(([k,v]) => {
       if (lastResult.scores[k]) lastResult.scores[k] = { ...lastResult.scores[k], ...v };
@@ -2801,17 +2867,14 @@ function applyAdjustedScores(adjusted, btn) {
   if (adjusted.gaps) lastResult.gaps = adjusted.gaps;
   if (adjusted.nextSteps) lastResult.nextSteps = adjusted.nextSteps;
 
-  // Re-render results with updated scores
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
   render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
 
-  // Save updated result
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
   }
 
-  // Update button to confirm
   btn.textContent = '✓ Scores updated';
   btn.style.background = 'var(--ok)';
   btn.disabled = true;
@@ -2820,7 +2883,6 @@ function applyAdjustedScores(adjusted, btn) {
 }
 
 function reAnalyse() {
-  // Clear results and assistant, scroll back up, ready for fresh analysis
   document.getElementById('results').style.display = 'none';
   document.getElementById('emptyState').style.display = 'flex';
   document.getElementById('auditAssistantCard').style.display = 'none';
@@ -2828,7 +2890,6 @@ function reAnalyse() {
   auditChatHistory = [];
   lastResult = null;
   document.getElementById('rightPanel').scrollTop = 0;
-  // Clear case audited state so it doesn't show as done
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].audited = false;
     cases[currentCaseIdx].inProgress = false;
@@ -2836,7 +2897,6 @@ function reAnalyse() {
   }
 }
 
-// ── TRENDS ASSISTANT ───────────────────────────────────────────────
 let trendsChatHistory = [];
 
 async function sendTrendsChat() {
@@ -2936,7 +2996,6 @@ function initTrendsSuggestions() {
   });
 }
 
-// ── HARD RESET ────────────────────────────────────────────────────
 async function hardReset() {
   const btn = document.getElementById('hardResetBtn');
   if (!btn) return;
@@ -2960,7 +3019,6 @@ async function hardReset() {
     try { await window.storage.delete(k); } catch(e) {}
     try { localStorage.removeItem(k); } catch(e) {}
   }
-  // Reset state
   allMonthBatches = {};
   currentMonth = getCurrentMonthKey();
   cases = [];
@@ -2971,7 +3029,6 @@ async function hardReset() {
   showStorageStatus('✓ All data cleared — fresh start');
 }
 
-// ── PDF EXPORT ─────────────────────────────────────────────────────
 function exportPDF() {
   if (!lastResult) return;
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
@@ -3003,7 +3060,6 @@ function exportPDF() {
     </div>`;
   }).join('');
 
-  // Material Facts flag from saved sofData
   const savedSof = (currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData : null) || {};
   const mfItems = ['sofBuilding','sofDirectors','sofCQC','sofBeds','sofStaff','sofChanges'];
   const mfChecked = mfItems.filter(id => savedSof[id]).length;
@@ -3125,7 +3181,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
 
 </body></html>`;
 
-  // Show as in-page modal (works in Claude artifact sandbox where window.open is blocked)
   let modal = document.getElementById('pdfModal');
   if (modal) modal.remove();
 
@@ -3136,7 +3191,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
   const inner = document.createElement('div');
   inner.style.cssText = 'background:white;border-radius:12px;width:100%;max-width:820px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.3);margin:auto';
 
-  // Toolbar
   const toolbar = document.createElement('div');
   toolbar.style.cssText = 'background:#AC4B82;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:1';
   toolbar.innerHTML = `
@@ -3146,7 +3200,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
       <button onclick="document.getElementById('pdfModal').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:6px;padding:7px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer">✕ Close</button>
     </div>`;
 
-  // Wire download button after appending to DOM
   setTimeout(() => {
     const dlBtn = document.getElementById('downloadReportBtn');
     if (dlBtn) {
@@ -3159,7 +3212,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
         try { document.execCommand('copy'); } catch(e) {}
         document.body.removeChild(ta);
 
-        // Try blob download
         try {
           const blob = new Blob([html], { type: 'text/html' });
           const url = URL.createObjectURL(blob);
@@ -3181,7 +3233,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
     }
   }, 100);
 
-  // Report content iframe
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'width:100%;border:none;min-height:600px';
   iframe.srcdoc = html;
@@ -3191,7 +3242,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
   modal.appendChild(inner);
   document.body.appendChild(modal);
 
-  // Auto-resize iframe to content
   iframe.onload = () => {
     try {
       const h = iframe.contentDocument?.body?.scrollHeight;
@@ -3200,7 +3250,6 @@ ${listHTML(r.devPlan,'#7a2f5b')}
   };
 }
 
-// ── MANUAL EDIT FUNCTIONS ─────────────────────────────────────────
 function toggleEdit(id, field) {
   const p = document.getElementById(id);
   const ta = document.getElementById(id + 'Edit');
@@ -3261,10 +3310,440 @@ function saveEditList(id, field) {
   }
 }
 
-// ── INIT ──────────────────────────────────────────────────────────
-renderHandlerSelect();
-initCallSlots();
-loadQueueFromStorage();
+function switchReportTab(tab) {
+  ['handler','team','compliance','bs'].forEach(t => {
+    document.getElementById('rpanel-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('rtab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'handler') { populateHandlerSelect(); renderHandlerReport(); }
+  if (tab === 'team') { populateTeamReportSelect(); renderTeamReport(); }
+  if (tab === 'compliance') renderComplianceReport();
+  if (tab === 'bs') renderBSReport();
+}
+
+function populateHandlerSelect() {
+  const sel = document.getElementById('rptHandler');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select handler...</option>';
+  allHandlers().forEach(h => {
+    const o = document.createElement('option'); o.value = h; o.textContent = h; sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+}
+
+function populateTeamReportSelect() {
+  const sel = document.getElementById('rptTeam');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">All teams</option>';
+  sessionTeams.forEach(t => {
+    const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+}
+
+function filterHistory(history, periodId, teamId, handlerName) {
+  const days = parseInt(periodId) || 0;
+  const cutoff = days ? new Date(Date.now() - days * 86400000) : null;
+  return history.filter(r => {
+    if (cutoff && new Date(r.auditedAt) < cutoff) return false;
+    if (handlerName && r.handler !== handlerName) return false;
+    if (teamId && teamId !== 'all') {
+      const team = sessionTeams.find(t => t.id === teamId);
+      if (team && !team.handlers.includes(r.handler)) return false;
+    }
+    return true;
+  });
+}
+
+async function renderHandlerReport() {
+  const handler = document.getElementById('rptHandler').value;
+  const period = document.getElementById('rptHandlerPeriod').value;
+  const container = document.getElementById('handlerReportContent');
+  if (!handler) { container.innerHTML = '<div class="empty-dash">Select a handler to view their report.</div>'; return; }
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, handler);
+  if (!data.length) { container.innerHTML = '<div class="empty-dash">No audits found for this handler in this period.</div>'; return; }
+
+  const sorted = [...data].sort((a,b) => new Date(a.auditedAt) - new Date(b.auditedAt));
+  const avgScore = data.reduce((s,r) => s+(r.scorePct||0),0)/data.length;
+  const compPass = data.filter(r => r.compGrade === 'PASS').length;
+  const compPassRate = Math.round(compPass/data.length*100);
+
+  const last5 = sorted.slice(-5);
+  const prev5 = sorted.slice(-10,-5);
+  const last5Avg = last5.length ? last5.reduce((s,r)=>s+(r.scorePct||0),0)/last5.length : null;
+  const prev5Avg = prev5.length ? prev5.reduce((s,r)=>s+(r.scorePct||0),0)/prev5.length : null;
+  const trend = last5Avg !== null && prev5Avg !== null ? last5Avg - prev5Avg : null;
+
+  const catTotals = {}; const catCounts = {};
+  data.forEach(r => {
+    Object.entries(r.scores||{}).forEach(([k,v]) => {
+      if (!v.applicable) return;
+      catTotals[k] = (catTotals[k]||0) + (v.score/v.max);
+      catCounts[k] = (catCounts[k]||0) + 1;
+    });
+  });
+  const catAvgs = Object.entries(catTotals).map(([k,v]) => ({ key:k, avg:v/catCounts[k] })).sort((a,b)=>a.avg-b.avg);
+
+  const bsKeys = ['recruitment','energy','risk','wealth','sales'];
+  const bsLabelsMap = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Mgmt', sales:'Sales' };
+  const bsRates = bsKeys.map(k => {
+    const applicable = data.filter(r => r.businessSolutions?.[k]?.result !== 'na');
+    const asked = applicable.filter(r => ['asked_opportunity','asked_no_opportunity'].includes(r.businessSolutions?.[k]?.result));
+    return { key:k, label:bsLabelsMap[k], rate: applicable.length ? Math.round(asked.length/applicable.length*100) : null, asked:asked.length, total:applicable.length };
+  });
+
+  const sofData = data.filter(r => r.sofData);
+  const sofComplete = sofData.filter(r => {
+    const s = r.sofData;
+    return s && [s.sofBuilding,s.sofDirectors,s.sofCQC,s.sofBeds,s.sofStaff,s.sofChanges].every(Boolean);
+  });
+  const sofRate = sofData.length ? Math.round(sofComplete.length/sofData.length*100) : null;
+
+  const compKeys = ['RV','Cyber','DO'];
+  const compRates = compKeys.map(k => {
+    const rel = data.filter(r => r.compliance?.[k]?.result !== 'na');
+    const pass = rel.filter(r => r.compliance?.[k]?.result === 'pass');
+    return { key:k, label:k==='DO'?'D&O':k, rate:rel.length?Math.round(pass.length/rel.length*100):null };
+  });
+
+  const trendStr = trend === null ? 'Not enough data' : trend > 0.03 ? `↑ Improving (+${Math.round(trend*100)}%)` : trend < -0.03 ? `↓ Declining (${Math.round(trend*100)}%)` : '→ Stable';
+  const trendCol = trend === null ? 'var(--muted)' : trend > 0.03 ? 'var(--ok)' : trend < -0.03 ? 'var(--danger)' : 'var(--muted)';
+
+  container.innerHTML = `
+    <div class="rpt-card">
+      <div class="rpt-card-title">${handler} — ${data.length} audit${data.length!==1?'s':''} in period</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+        <div class="rpt-stat"><div class="rpt-stat-num" style="color:${scoreColor(avgScore)}">${Math.round(avgScore*100)}%</div><div class="rpt-stat-label">Avg score</div></div>
+        <div class="rpt-stat"><div class="rpt-stat-num" style="color:${compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate}%</div><div class="rpt-stat-label">Compliance pass</div></div>
+        <div class="rpt-stat"><div class="rpt-stat-num" style="color:${trendCol};font-size:16px;margin-top:6px">${trendStr}</div><div class="rpt-stat-label">Last 5 vs prev 5</div></div>
+        <div class="rpt-stat"><div class="rpt-stat-num" style="color:var(--muted)">${sofRate !== null ? sofRate+'%' : 'N/A'}</div><div class="rpt-stat-label">SOF completion</div></div>
+      </div>
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Category performance — lowest to highest</div>
+      ${catAvgs.map(item => `
+        <div class="heatmap-cell">
+          <span style="min-width:160px;color:var(--text)">${SCORE_LABELS[item.key]||item.key}</span>
+          <div class="heatmap-bar"><div class="heatmap-fill" style="width:${Math.round(item.avg*100)}%;background:${scoreColor(item.avg)}"></div></div>
+          <span style="font-size:12px;font-weight:600;color:${scoreColor(item.avg)};min-width:36px;text-align:right">${Math.round(item.avg*100)}%</span>
+        </div>`).join('')}
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Compliance pass rates</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        ${compRates.map(c => `
+          <div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px">
+            <div style="font-size:22px;font-weight:600;color:${c.rate===null?'var(--muted)':c.rate>=80?'var(--ok)':c.rate>=50?'var(--warn)':'var(--danger)'}">${c.rate!==null?c.rate+'%':'N/A'}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">${c.label}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Business Solutions — discussion rate</div>
+      ${bsRates.map(b => b.rate === null ? '' : `
+        <div class="heatmap-cell">
+          <span style="min-width:120px;color:var(--text)">${b.label}</span>
+          <div class="heatmap-bar"><div class="heatmap-fill" style="width:${b.rate}%;background:${scoreColor(b.rate/100)}"></div></div>
+          <span style="font-size:11px;color:var(--muted);min-width:80px;text-align:right">${b.asked}/${b.total} calls (${b.rate}%)</span>
+        </div>`).join('')}
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Audit history</div>
+      <div class="comp-gap-row header"><span>Date</span><span>Score</span><span>Compliance / flags</span></div>
+      ${sorted.slice().reverse().slice(0,20).map(r => {
+        const flags = ['RV','Cyber','DO'].filter(k => r.compliance?.[k]?.result === 'fail').join(', ');
+        return `<div class="comp-gap-row">
+          <span style="color:var(--muted)">${r.auditedAt ? new Date(r.auditedAt).toLocaleDateString('en-GB') : '—'}<br><span style="font-size:10px">${r.ref||''}</span></span>
+          <span style="font-weight:600;color:${scoreColor(r.scorePct)}">${Math.round((r.scorePct||0)*100)}%</span>
+          <span>${r.compGrade==='PASS'?'<span class="flag-pill pass">PASS</span>':r.compGrade==='PARTIAL'?'<span class="flag-pill" style="background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)">PARTIAL</span>':'<span class="flag-pill fail">FAIL</span>'} ${flags ? '<span style="font-size:11px;color:var(--muted)">'+flags+'</span>' : ''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+async function exportHandlerReport() {
+  const handler = document.getElementById('rptHandler').value;
+  const period = document.getElementById('rptHandlerPeriod').value;
+  if (!handler) { alert('Please select a handler first.'); return; }
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, handler);
+  if (!data.length) { alert('No data to export.'); return; }
+
+  const headers = ['Date','Client Ref','Client Name','Score %','Compliance Grade','RV','Cyber','D&O','Contact Strategy','Call Effectiveness','Technical','Commercial','Recruitment BS','Energy BS','Risk BS','Wealth BS','Sales BS'];
+  const rows = data.map(r => [
+    r.auditedAt ? new Date(r.auditedAt).toLocaleDateString('en-GB') : '',
+    r.ref||'', r.name||'',
+    Math.round((r.scorePct||0)*100)+'%',
+    r.compGrade||'',
+    r.compliance?.RV?.result||'', r.compliance?.Cyber?.result||'', r.compliance?.DO?.result||'',
+    r.scores?.contactStrategy?.score??'', r.scores?.callEffectiveness?.score??'',
+    r.scores?.technical?.score??'', r.scores?.commercial?.score??'',
+    r.businessSolutions?.recruitment?.result||'', r.businessSolutions?.energy?.result||'',
+    r.businessSolutions?.risk?.result||'', r.businessSolutions?.wealth?.result||'',
+    r.businessSolutions?.sales?.result||''
+  ]);
+  downloadCSV([headers,...rows], `${handler.replace(/\s/g,'_')}_Report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+async function renderTeamReport() {
+  const teamId = document.getElementById('rptTeam').value;
+  const period = document.getElementById('rptTeamPeriod').value;
+  const container = document.getElementById('teamReportContent');
+  const all = await loadHistory();
+  const data = filterHistory(all, period, teamId, null);
+  if (!data.length) { container.innerHTML = '<div class="empty-dash">No audits found for this team in this period.</div>'; return; }
+
+  const handlers = {};
+  data.forEach(r => {
+    const h = r.handler||'Unknown';
+    if (!handlers[h]) handlers[h] = { cases:[], compFails:0 };
+    handlers[h].cases.push(r);
+    if (r.compGrade === 'FAIL' || r.compGrade === 'PARTIAL') handlers[h].compFails++;
+  });
+
+  const handlerRows = Object.entries(handlers)
+    .map(([name, hd]) => ({ name, avg: hd.cases.reduce((s,r)=>s+(r.scorePct||0),0)/hd.cases.length, count:hd.cases.length, compFails:hd.compFails }))
+    .sort((a,b) => b.avg - a.avg);
+
+  const teamAvg = data.reduce((s,r)=>s+(r.scorePct||0),0)/data.length;
+  const compPassRate = Math.round(data.filter(r=>r.compGrade==='PASS').length/data.length*100);
+
+  const catTotals = {}; const catCounts = {};
+  data.forEach(r => Object.entries(r.scores||{}).forEach(([k,v]) => {
+    if (!v.applicable) return;
+    catTotals[k] = (catTotals[k]||0) + v.score/v.max;
+    catCounts[k] = (catCounts[k]||0) + 1;
+  }));
+  const weakest = Object.entries(catTotals).map(([k,v])=>({key:k,avg:v/catCounts[k]})).sort((a,b)=>a.avg-b.avg).slice(0,3);
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num" style="color:${scoreColor(teamAvg)}">${Math.round(teamAvg*100)}%</div><div class="rpt-stat-label">Team avg score</div></div>
+      <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num" style="color:${compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate}%</div><div class="rpt-stat-label">Compliance pass rate</div></div>
+      <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num">${data.length}</div><div class="rpt-stat-label">Total audits</div></div>
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Handler ranking</div>
+      <div class="comp-gap-row header"><span>Handler</span><span>Avg score</span><span>Audits</span></div>
+      ${handlerRows.map((h,i) => `<div class="comp-gap-row">
+        <span style="font-weight:500">${i===0?'🥇 ':''}${h.name}</span>
+        <span style="font-weight:600;color:${scoreColor(h.avg)}">${Math.round(h.avg*100)}%</span>
+        <span style="color:var(--muted)">${h.count} audit${h.count!==1?'s':''} ${h.compFails>0?'<span style="font-size:10px;color:var(--danger)">'+h.compFails+' comp fail'+( h.compFails>1?'s':'')+'</span>':''}</span>
+      </div>`).join('')}
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Team weak spots — 3 lowest scoring categories</div>
+      ${weakest.map(w => `<div class="heatmap-cell">
+        <span style="min-width:160px">${SCORE_LABELS[w.key]||w.key}</span>
+        <div class="heatmap-bar"><div class="heatmap-fill" style="width:${Math.round(w.avg*100)}%;background:${scoreColor(w.avg)}"></div></div>
+        <span style="font-size:12px;font-weight:600;color:${scoreColor(w.avg)};min-width:36px;text-align:right">${Math.round(w.avg*100)}%</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+async function exportTeamReport() {
+  const teamId = document.getElementById('rptTeam').value;
+  const period = document.getElementById('rptTeamPeriod').value;
+  const all = await loadHistory();
+  const data = filterHistory(all, period, teamId, null);
+  if (!data.length) { alert('No data to export.'); return; }
+  const headers = ['Handler','Team','Date','Client Ref','Score %','Compliance Grade','RV','Cyber','D&O'];
+  const rows = data.map(r => [r.handler||'',handlerTeam(r.handler||''),r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'',r.ref||'',Math.round((r.scorePct||0)*100)+'%',r.compGrade||'',r.compliance?.RV?.result||'',r.compliance?.Cyber?.result||'',r.compliance?.DO?.result||'']);
+  downloadCSV([headers,...rows], `Team_Report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+async function renderComplianceReport() {
+  const period = document.getElementById('rptCompPeriod').value;
+  const container = document.getElementById('complianceReportContent');
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, null);
+  if (!data.length) { container.innerHTML = '<div class="empty-dash">No audits found in this period.</div>'; return; }
+
+  const compKeys = [{k:'RV',label:'Reinstatement Values'},{k:'Cyber',label:'Cyber Insurance'},{k:'DO',label:'Directors & Officers'},{k:'MF',label:'Material Facts'}];
+  const rates = compKeys.map(({k,label}) => {
+    const rel = k==='MF' ? data : data.filter(r=>r.compliance?.[k]?.result!=='na');
+    const pass = k==='MF' ? data.filter(r=>r.compGrade==='PASS') : rel.filter(r=>r.compliance?.[k]?.result==='pass');
+    return { k, label, rate:rel.length?Math.round(pass.length/rel.length*100):null };
+  });
+
+  const overallPass = Math.round(data.filter(r=>r.compGrade==='PASS').length/data.length*100);
+
+  const handlerFails = {};
+  data.forEach(r => {
+    const h = r.handler||'Unknown';
+    if (!handlerFails[h]) handlerFails[h] = { fails:[], cases:0 };
+    handlerFails[h].cases++;
+    if (r.compGrade==='FAIL'||r.compGrade==='PARTIAL') handlerFails[h].fails.push(r);
+  });
+  const urgentHandlers = Object.entries(handlerFails).filter(([,d])=>d.fails.length>=2).sort((a,b)=>b[1].fails.length-a[1].fails.length);
+
+  const failCases = data.filter(r => r.compGrade==='FAIL'||r.compGrade==='PARTIAL').sort((a,b)=>new Date(b.auditedAt)-new Date(a.auditedAt));
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div class="rpt-card" style="text-align:center;border:2px solid ${overallPass>=80?'var(--ok-border)':overallPass>=50?'var(--warn-border)':'var(--danger-border)'}">
+        <div class="rpt-stat-num" style="font-size:36px;color:${overallPass>=80?'var(--ok)':overallPass>=50?'var(--warn)':'var(--danger)'}">${overallPass}%</div>
+        <div class="rpt-stat-label">Overall compliance pass rate</div>
+      </div>
+      ${rates.map(r => `<div class="rpt-card" style="text-align:center">
+        <div class="rpt-stat-num" style="color:${r.rate===null?'var(--muted)':r.rate>=80?'var(--ok)':r.rate>=50?'var(--warn)':'var(--danger)'}">${r.rate!==null?r.rate+'%':'N/A'}</div>
+        <div class="rpt-stat-label">${r.label}</div>
+      </div>`).join('')}
+    </div>
+
+    ${urgentHandlers.length ? `<div class="rpt-card" style="border-color:var(--danger-border);background:var(--danger-bg)">
+      <div class="rpt-card-title" style="color:var(--danger)">⚠ Handlers requiring urgent attention — 2 or more compliance fails in period</div>
+      ${urgentHandlers.map(([name,d]) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--danger-border);font-size:13px">
+        <span style="font-weight:600">${name}</span>
+        <span style="color:var(--danger);font-weight:600">${d.fails.length} compliance fail${d.fails.length!==1?'s':''} out of ${d.cases} audits</span>
+      </div>`).join('')}
+    </div>` : `<div class="rpt-card" style="border-color:var(--ok-border);background:var(--ok-bg);text-align:center;color:var(--ok);font-weight:600">✓ No handlers with 2 or more compliance fails in this period</div>`}
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Compliance gap breakdown — per case</div>
+      <div class="comp-gap-row header"><span>Handler</span><span>Date / Ref</span><span>What was not covered</span></div>
+      ${failCases.length === 0 ? '<div class="empty-dash">No compliance failures in this period.</div>' :
+        failCases.map(r => {
+          const missed = [];
+          if (r.compliance?.RV?.result==='fail') missed.push('RV — '+( r.compliance.RV.note||'Not discussed'));
+          if (r.compliance?.Cyber?.result==='fail') missed.push('Cyber — '+(r.compliance.Cyber.note||'Not discussed'));
+          if (r.compliance?.DO?.result==='fail') missed.push('D&O — '+(r.compliance.DO.note||'Not discussed'));
+          if (r.compGrade==='PARTIAL'&&missed.length===0) missed.push('Material facts incomplete');
+          return `<div class="comp-gap-row">
+            <span style="font-weight:500">${r.handler||'—'}</span>
+            <span style="color:var(--muted);font-size:11px">${r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'—'}<br>${r.ref||''} ${r.name?'— '+r.name.slice(0,25):''}</span>
+            <span style="font-size:11.5px">${missed.map(m=>`<div style="margin-bottom:2px"><span class="flag-pill fail">FAIL</span> ${m}</div>`).join('')}</span>
+          </div>`;
+        }).join('')}
+    </div>`;
+}
+
+async function exportComplianceReport() {
+  const period = document.getElementById('rptCompPeriod').value;
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, null);
+  if (!data.length) { alert('No data to export.'); return; }
+  const headers = ['Handler','Team','Date','Client Ref','Client Name','Compliance Grade','RV Result','RV Note','Cyber Result','Cyber Note','D&O Result','D&O Note'];
+  const rows = data.map(r => [
+    r.handler||'', handlerTeam(r.handler||''),
+    r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'',
+    r.ref||'', r.name||'', r.compGrade||'',
+    r.compliance?.RV?.result||'', r.compliance?.RV?.note||'',
+    r.compliance?.Cyber?.result||'', r.compliance?.Cyber?.note||'',
+    r.compliance?.DO?.result||'', r.compliance?.DO?.note||''
+  ]);
+  downloadCSV([headers,...rows], `Compliance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+async function renderBSReport() {
+  const period = document.getElementById('rptBSPeriod').value;
+  const container = document.getElementById('bsReportContent');
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, null);
+  if (!data.length) { container.innerHTML = '<div class="empty-dash">No audits found in this period.</div>'; return; }
+
+  const bsKeys = ['recruitment','energy','risk','wealth','sales'];
+  const bsLabelsMap = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Management', sales:'Sales' };
+
+  const solutionRates = bsKeys.map(k => {
+    const applicable = data.filter(r => r.businessSolutions?.[k]?.result !== 'na');
+    const discussed = applicable.filter(r => ['asked_opportunity','asked_no_opportunity'].includes(r.businessSolutions?.[k]?.result));
+    const opportunity = applicable.filter(r => r.businessSolutions?.[k]?.result === 'asked_opportunity');
+    return { k, label:bsLabelsMap[k], rate:applicable.length?Math.round(discussed.length/applicable.length*100):null, discussed:discussed.length, opportunity:opportunity.length, total:applicable.length };
+  });
+
+  const handlers = {};
+  data.forEach(r => {
+    const h = r.handler||'Unknown';
+    if (!handlers[h]) handlers[h] = { cases:0 };
+    handlers[h].cases++;
+    bsKeys.forEach(k => {
+      if (!handlers[h][k]) handlers[h][k] = { applicable:0, discussed:0 };
+      if (r.businessSolutions?.[k]?.result === 'na') return;
+      handlers[h][k].applicable++;
+      if (['asked_opportunity','asked_no_opportunity'].includes(r.businessSolutions?.[k]?.result)) handlers[h][k].discussed++;
+    });
+  });
+
+  container.innerHTML = `
+    <div class="rpt-card">
+      <div class="rpt-card-title">Team-wide discussion rates by solution</div>
+      ${solutionRates.map(s => s.rate === null ? '' : `
+        <div class="heatmap-cell">
+          <span style="min-width:140px;font-weight:500">${s.label}</span>
+          <div class="heatmap-bar"><div class="heatmap-fill" style="width:${s.rate}%;background:${scoreColor(s.rate/100)}"></div></div>
+          <span style="font-size:11px;color:var(--muted);min-width:140px;text-align:right">${s.discussed}/${s.total} calls discussed (${s.rate}%)</span>
+        </div>`).join('')}
+    </div>
+
+    <div class="rpt-card">
+      <div class="rpt-card-title">Handler discussion rates — who is raising Business Solutions</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg)">
+              <th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border)">Handler</th>
+              ${bsKeys.map(k=>`<th style="text-align:center;padding:8px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border)">${bsLabelsMap[k]}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.entries(handlers).sort((a,b)=>{
+              const aAvg = bsKeys.reduce((s,k)=>s+(a[1][k]?.applicable?a[1][k].discussed/a[1][k].applicable:0),0)/bsKeys.length;
+              const bAvg = bsKeys.reduce((s,k)=>s+(b[1][k]?.applicable?b[1][k].discussed/b[1][k].applicable:0),0)/bsKeys.length;
+              return bAvg-aAvg;
+            }).map(([name,hd]) => `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px 12px;font-weight:500">${name}</td>
+              ${bsKeys.map(k => {
+                const d = hd[k];
+                if (!d||!d.applicable) return `<td style="text-align:center;padding:8px;color:var(--muted2)">N/A</td>`;
+                const pct = Math.round(d.discussed/d.applicable*100);
+                const col = pct>=70?'var(--ok)':pct>=40?'var(--warn)':'var(--danger)';
+                return `<td style="text-align:center;padding:8px;font-weight:600;color:${col}">${pct}%<span style="font-weight:400;color:var(--muted);font-size:10px;display:block">${d.discussed}/${d.applicable}</span></td>`;
+              }).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+async function exportBSReport() {
+  const period = document.getElementById('rptBSPeriod').value;
+  const all = await loadHistory();
+  const data = filterHistory(all, period, null, null);
+  if (!data.length) { alert('No data to export.'); return; }
+  const headers = ['Handler','Team','Date','Client Ref','Recruitment','Energy','Risk','Wealth Management','Sales'];
+  const rows = data.map(r => [
+    r.handler||'', handlerTeam(r.handler||''),
+    r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'',
+    r.ref||'',
+    r.businessSolutions?.recruitment?.result||'',
+    r.businessSolutions?.energy?.result||'',
+    r.businessSolutions?.risk?.result||'',
+    r.businessSolutions?.wealth?.result||'',
+    r.businessSolutions?.sales?.result||''
+  ]);
+  downloadCSV([headers,...rows], `BusinessSolutions_Report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+function downloadCSV(rows, filename) {
+  const esc = v => { const s = String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const csv = rows.map(r => r.map(esc).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// App init now happens inside onAuthed(), once a session is confirmed.
 </script>
 </body>
 </html>
