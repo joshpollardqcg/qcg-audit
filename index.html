@@ -1375,8 +1375,17 @@ async function addManualCase() {
 async function clearQueue() {
   const btn = document.getElementById('clearQueueBtn');
   if (btn.dataset.confirm === '1') {
-    const { error } = await sb.from('cases').delete().eq('month_key', currentMonth);
+    const expectedCount = cases.length;
+    const { data, error } = await sb.from('cases').delete().eq('month_key', currentMonth).select();
     if (error) { alert('Could not clear month: ' + error.message); return; }
+    // A delete blocked by RLS returns success with zero affected rows, not
+    // an error — check explicitly rather than trusting the absence of one.
+    if (expectedCount > 0 && (!data || data.length === 0)) {
+      alert('Nothing was actually deleted — this usually means a permissions issue. Check with whoever manages the database.');
+      btn.textContent = 'Clear Month';
+      btn.dataset.confirm = '0';
+      return;
+    }
     cases = [];
     btn.textContent = 'Clear Month';
     btn.dataset.confirm = '0';
@@ -3172,9 +3181,16 @@ async function hardReset() {
     }, 4000);
     return;
   }
-  // Deleting all cases cascades to delete their audits too (FK on delete cascade)
-  const { error } = await sb.from('cases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  // Deleting all cases cascades to delete their audits too (FK on delete cascade).
+  // Check how many rows actually exist first — hardReset spans every month,
+  // so the local `cases` array (current month only) can't tell us that.
+  const { count: beforeCount } = await sb.from('cases').select('id', { count: 'exact', head: true });
+  const { data, error } = await sb.from('cases').delete().neq('id', '00000000-0000-0000-0000-000000000000').select();
   if (error) { alert('Reset failed: ' + error.message); return; }
+  if ((beforeCount || 0) > 0 && (!data || data.length === 0)) {
+    alert('Reset reported success but deleted nothing — this usually means a permissions issue, not that there was no data. Check with whoever manages the database.');
+    return;
+  }
   currentMonth = getCurrentMonthKey();
   knownMonths = [];
   cases = [];
