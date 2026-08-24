@@ -210,41 +210,9 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .flag-pill.pass{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border)}
 .flag-pill.na{background:var(--bg);color:var(--muted);border:1px solid var(--border2)}
 
-/* PRINT / PDF STYLES */
-@media print {
-  body * { visibility: hidden; }
-  #printArea, #printArea * { visibility: visible; }
-  #printArea { position: fixed; top: 0; left: 0; width: 100%; background: white; padding: 32px; font-family: 'Inter', sans-serif; font-size: 12px; color: #1a1917; }
-  .print-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #AC4B82; padding-bottom: 16px; margin-bottom: 24px; }
-  .print-logo { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; color: #AC4B82; }
-  .print-title { font-size: 14px; color: #6b6860; }
-  .print-section { margin-bottom: 20px; }
-  .print-section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #6b6860; border-bottom: 1px solid #e5e3de; padding-bottom: 6px; margin-bottom: 10px; font-weight: 600; }
-  .print-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
-  .print-flag { border: 1px solid #e5e3de; border-radius: 6px; padding: 10px 12px; }
-  .print-flag.pass { border-color: #a3d9bc; background: #edf7f2; }
-  .print-flag.fail { border-color: #f5a9a9; background: #fdf0f0; }
-  .print-flag.na { border-color: #d1cec7; }
-  .print-flag-name { font-weight: 600; font-size: 12px; margin-bottom: 3px; }
-  .print-flag-result { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
-  .print-flag-result.pass { color: #1a7a4a; }
-  .print-flag-result.fail { color: #9b1f1f; }
-  .print-flag-result.na { color: #6b6860; }
-  .print-flag-note { font-size: 11px; color: #6b6860; margin-top: 3px; line-height: 1.4; }
-  .print-score-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f5f4f2; font-size: 12px; }
-  .print-score-val { font-weight: 600; }
-  .print-score-rationale { font-size: 10px; color: #6b6860; margin-top: 2px; }
-  .print-list { list-style: none; padding: 0; }
-  .print-list li { padding: 4px 0; padding-left: 14px; position: relative; font-size: 12px; line-height: 1.5; }
-  .print-list li::before { content: '•'; position: absolute; left: 0; color: #AC4B82; font-weight: 700; }
-  .print-scores-summary { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-  .print-score-circle { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #AC4B82; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f7eef4; }
-  .print-score-num { font-family: 'Lora', serif; font-size: 18px; font-weight: 600; color: #7a2f5b; line-height: 1; }
-  .print-score-denom { font-size: 9px; color: #AC4B82; }
-  .print-bs-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f5f4f2; font-size: 11px; }
-  .print-bs-badge { font-weight: 600; font-size: 10px; }
-  .print-footer { margin-top: 32px; border-top: 1px solid #e5e3de; padding-top: 12px; font-size: 10px; color: #9c9890; display: flex; justify-content: space-between; }
-}
+/* Note: an older @media print block for #printArea lived here — dead code,
+   nothing populates that div anymore since PDF export moved to the modal
+   iframe approach in exportPDF(). Removed for clarity, no behaviour change. */
 .score-section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
 .copy-btn{align-self:flex-end;background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;margin-bottom:28px}
 .copy-btn:hover{border-color:var(--qc);color:var(--qc);background:var(--qc-light)}
@@ -735,8 +703,6 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 </div>
 
 <!-- PRINT AREA -->
-<div id="printArea" style="display:none"></div>
-
 <!-- ══ REPORTS VIEW ══ -->
 <div class="view" id="viewReports">
   <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
@@ -1216,7 +1182,7 @@ function renderQueue() {
   countTab.textContent = cases.length;
 
   if (cases.length === 0) {
-    grid.innerHTML = '<div class="empty-queue"><h3>No cases yet</h3><p>Import your Acturis CSV to pre-populate the queue, or add a case manually using the button above.</p><p style="margin-top:10px;font-size:12px;color:var(--muted2)">The CSV should contain columns: Reference, Name, Phone Number 1, Phone Number 2, Phone Number 3, Exec Name, Renewal Date</p></div>';
+    grid.innerHTML = '<div class="empty-queue"><h3>No cases yet</h3><p>Import your Acturis CSV to pre-populate the queue, or add a case manually using the button above.</p><p style="margin-top:10px;font-size:12px;color:var(--muted2)">The CSV should contain columns: Client Reference, Client Name, Phone Number 1, Phone Number 2, Phone Number 3, Handler, Renewal Date</p></div>';
     progressWrap.style.display = 'none';
     return;
   }
@@ -2138,7 +2104,7 @@ function copyReport() {
   const flags = ['RV','Cyber','DO'].map(k => k+': '+document.getElementById('badge'+k).textContent+' — '+document.getElementById('note'+k).textContent).join('\n');
   const summary = document.getElementById('rSummary').textContent;
   const list = id => [...document.getElementById(id).querySelectorAll('li')].map(l => '• '+l.textContent).join('\n');
-  const text = `QUALITY CARE GROUP — AUDIT REPORT\n===================================\nClient: ${name}\nTotal Score: ${total} ${denom}\n\nCALL TYPES IDENTIFIED\n${(lastResult.callTypes||[]).join(', ')}\n\nCOMPLIANCE\n${flags}\n\nSUMMARY\n${summary}\n\nSTRENGTHS\n${list('rStrengths')}\n\nGAPS & CONCERNS\n${list('rGaps')}\n\nNEXT STEPS\n${list('rNextSteps')}\n\nHANDLER DEVELOPMENT PLAN\n${list('rDevPlan')}`;
+  const text = `QUALITY CARE GROUP — AUDIT REPORT\n===================================\nClient: ${name}\nTotal Score: ${total} ${denom}\n\nCALL TYPES IDENTIFIED\n${(lastResult.callTypes||[]).join(', ')}\n\nCOMPLIANCE\n${flags}\n\nSUMMARY\n${summary}\n\nSTRENGTHS\n${list('rStrengths')}\n\nGAPS & CONCERNS\n${list('rGaps')}\n\nHANDLER DEVELOPMENT PLAN\n${list('rDevPlan')}`;
 
   const ta = document.createElement('textarea');
   ta.value = text;
