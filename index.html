@@ -870,7 +870,7 @@ async function onAuthed(user) {
   // App init, now that we know who's logged in
   renderHandlerSelect();
   initCallSlots();
-  loadQueueFromStorage();
+  await initAppData();
 }
 
 // On page load, check for an existing session before showing the login form
@@ -920,7 +920,7 @@ const BS_LABELS = {
   sales:       { label:'Sales',        question:'What does your 5 year plan look like for the business?' }
 };
 
-let allMonthBatches = {};
+let knownMonths = [];       // month_key strings that have at least one case in the DB
 let currentMonth = getCurrentMonthKey();
 let cases = [];
 let currentCaseIdx = null;
@@ -930,6 +930,65 @@ let sessionTeams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
 let sessionUnassigned = [...DEFAULT_UNASSIGNED];
 let lastResult = null;
 let lastExportTime = null;
+
+let handlersById = {};      // Supabase handlers.id -> row
+let handlersByName = {};    // handler name -> row
+
+async function loadHandlersCache() {
+  const { data, error } = await sb.from('handlers').select('*');
+  if (error) { console.warn('Handlers load failed:', error); return; }
+  handlersById = {}; handlersByName = {};
+  (data||[]).forEach(h => { handlersById[h.id] = h; handlersByName[h.name] = h; });
+}
+
+async function loadKnownMonths() {
+  const { data, error } = await sb.from('cases').select('month_key');
+  if (error || !data) { knownMonths = []; return; }
+  knownMonths = [...new Set(data.map(r => r.month_key))];
+}
+
+// Maps a DB case row (+ its latest audit row, if any) to the shape the
+// existing UI code already expects, so renderQueue/openCase/etc need no changes.
+function dbCaseToLocal(c, audit) {
+  const handlerName = c.handler_id ? (handlersById[c.handler_id]?.name || '') : '';
+  return {
+    id: c.id,
+    ref: c.ref || '', name: c.name || '', handler: handlerName,
+    renewal: c.renewal_date || '', policyType: c.policy_type || '',
+    phones: c.phones || [], audited: c.audited, inProgress: c.in_progress,
+    score: audit ? (audit.score + '/' + audit.max_score) : undefined,
+    scorePct: audit ? audit.score_pct : undefined,
+    compGrade: audit ? audit.comp_grade : undefined,
+    result: audit ? {
+      callTypes: audit.call_types, scores: audit.scores, compliance: audit.compliance,
+      businessSolutions: audit.business_solutions, summary: audit.summary,
+      strengths: audit.strengths, gaps: audit.gaps, devPlan: audit.dev_plan
+    } : null,
+    auditedAt: audit ? audit.audited_at : null,
+    sofData: audit ? audit.sof_data : null
+  };
+}
+
+async function loadCasesForMonth(monthKey) {
+  const { data: caseRows, error } = await sb.from('cases').select('*').eq('month_key', monthKey).order('created_at');
+  if (error) { console.warn('Cases load failed:', error); return []; }
+  if (!caseRows.length) return [];
+  const ids = caseRows.map(c => c.id);
+  const { data: auditRows } = await sb.from('audits').select('*').in('case_id', ids).order('audited_at', { ascending:false });
+  const latestByCase = {};
+  (auditRows||[]).forEach(a => { if (!latestByCase[a.case_id]) latestByCase[a.case_id] = a; });
+  return caseRows.map(c => dbCaseToLocal(c, latestByCase[c.id]));
+}
+
+async function initAppData() {
+  await loadHandlersCache();
+  await loadKnownMonths();
+  currentMonth = getCurrentMonthKey();
+  cases = await loadCasesForMonth(currentMonth);
+  renderMonthSelect();
+  renderQueue();
+  updateExportReminder();
+}
 
 function getCurrentMonthKey() {
   const d = new Date();
@@ -996,7 +1055,7 @@ function populateTeamFilter() {
 
 function renderMonthSelect() {
   const sel = document.getElementById('monthSelect');
-  const keys = Object.keys(allMonthBatches).sort().reverse();
+  const keys = [...knownMonths].sort().reverse();
   if (!keys.includes(currentMonth)) keys.unshift(currentMonth);
   sel.innerHTML = '';
   keys.forEach(k => {
@@ -1008,40 +1067,26 @@ function renderMonthSelect() {
   });
 }
 
-function switchMonth(key) {
-  allMonthBatches[currentMonth] = cases;
+async function switchMonth(key) {
   currentMonth = key;
-  cases = allMonthBatches[key] || [];
+  cases = await loadCasesForMonth(key);
   renderQueue();
-  saveQueueToStorage();
 }
 
 function addNewMonth() {
   const now = new Date();
   const next = new Date(now.getFullYear(), now.getMonth()+1, 1);
   const key = next.getFullYear() + '-' + String(next.getMonth()+1).padStart(2,'0');
-  allMonthBatches[key] = allMonthBatches[key] || [];
   currentMonth = key;
-  cases = allMonthBatches[key];
+  cases = [];
+  if (!knownMonths.includes(key)) knownMonths.push(key);
   renderMonthSelect();
   renderQueue();
-  saveQueueToStorage();
 }
 
-function exportCSV() {
-  const allCases = Object.entries(allMonthBatches).flatMap(([month, batch]) =>
-    (batch || []).filter(c => c.audited).map(c => ({ ...c, month }))
-  );
-  const currentAudited = cases.filter(c => c.audited).map(c => ({ ...c, month: currentMonth }));
-  const combined = [...allCases, ...currentAudited];
-  const seen = new Set();
-  const unique = combined.filter(c => {
-    const k = (c.ref||'') + '_' + (c.auditedAt||'');
-    if (seen.has(k)) return false;
-    seen.add(k); return true;
-  });
-
-  if (!unique.length) { showImportError('No audited cases to export yet.'); return; }
+async function exportCSV() {
+  const history = await loadHistory();
+  if (!history.length) { showImportError('No audited cases to export yet.'); return; }
 
   const headers = ['Month','Client Ref','Client Name','Handler','Renewal Date','Audited At','Score','Max Score',
     'Contact Strategy','Client Resistance','Call Effectiveness','Technical','Commercial',
@@ -1049,25 +1094,21 @@ function exportCSV() {
     'Closing Proactivity','Cover Confirmation','Last Mile Cross-sell','Relationship Close',
     'RV','Cyber','D&O',
     'Recruitment BS','Energy BS','Risk BS','Wealth BS','Sales BS',
-    'Summary','Strengths','Gaps','Next Steps'];
+    'Summary','Strengths','Gaps','Dev Plan'];
 
   const escCSV = v => {
     const s = String(v||'');
     return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g,'""') + '"' : s;
   };
 
-  const rows = unique.map(c => {
-    const r = c.result || {};
+  const rows = history.map(r => {
     const sc = r.scores || {};
     const co = r.compliance || {};
     const bs = r.businessSolutions || {};
-    const applicable = Object.values(sc).filter(v => v && v.applicable);
-    const total = applicable.reduce((s,v) => s+(v.score||0), 0);
-    const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
     return [
-      monthKeyToLabel(c.month||currentMonth), c.ref, c.name, c.handler, c.renewal,
-      c.auditedAt ? new Date(c.auditedAt).toLocaleDateString('en-GB') : '',
-      total, maxT,
+      r.auditedAt ? r.auditedAt.slice(0,7) : '', r.ref, r.name, r.handler, r.renewal,
+      r.auditedAt ? new Date(r.auditedAt).toLocaleDateString('en-GB') : '',
+      r.score, r.maxScore,
       sc.contactStrategy?.score??'', sc.clientResistance?.applicable ? sc.clientResistance?.score??'' : 'N/A',
       sc.callEffectiveness?.score??'', sc.technical?.score??'', sc.commercial?.score??'',
       sc.presentationConfidence?.applicable ? sc.presentationConfidence?.score??'' : 'N/A',
@@ -1080,7 +1121,7 @@ function exportCSV() {
       sc.relationshipClose?.applicable ? sc.relationshipClose?.score??'' : 'N/A',
       co.RV?.result||'', co.Cyber?.result||'', co.DO?.result||'',
       bs.recruitment?.result||'', bs.energy?.result||'', bs.risk?.result||'', bs.wealth?.result||'', bs.sales?.result||'',
-      r.summary||'', (r.strengths||[]).join(' | '), (r.gaps||[]).join(' | '), (r.nextSteps||[]).join(' | ')
+      r.summary||'', (r.strengths||[]).join(' | '), (r.gaps||[]).join(' | '), (r.devPlan||[]).join(' | ')
     ].map(escCSV).join(',');
   });
 
@@ -1123,35 +1164,7 @@ function updateExportReminder() {
   }
 }
 
-async function saveQueueToStorage() {
-  try {
-    const allBatches = { ...allMonthBatches, [currentMonth]: cases };
-    await storageSet('qcg-all-batches', allBatches);
-    await storageSet('qcg-current-month', currentMonth);
-  } catch(e) { console.warn('Queue save failed:', e); }
-}
-
-async function loadQueueFromStorage() {
-  try {
-    const savedBatches = await storageGet('qcg-all-batches');
-    const savedMonth   = await storageGet('qcg-current-month');
-    const savedExport  = await storageGet('qcg-last-export');
-
-    if (savedBatches) {
-      allMonthBatches = savedBatches;
-      currentMonth = savedMonth || getCurrentMonthKey();
-      cases = allMonthBatches[currentMonth] || [];
-      if (savedExport) lastExportTime = new Date(savedExport);
-      renderMonthSelect();
-      renderQueue();
-      const total = Object.values(allMonthBatches).reduce((s,b) => s+(b||[]).length, 0);
-      if (total > 0) showStorageStatus('✓ Data restored — ' + total + ' cases across ' + Object.keys(allMonthBatches).length + ' month(s)');
-    } else {
-      renderMonthSelect();
-    }
-    updateExportReminder();
-  } catch(e) { console.warn('Queue restore failed:', e); renderMonthSelect(); }
-}
+// Queue persistence is now handled by initAppData() / loadCasesForMonth() against Supabase.
 
 function copyPhone(e, number) {
   e.stopPropagation();
@@ -1299,8 +1312,13 @@ function renderLeftPhones(phones) {
   });
 }
 
-function addManualCase() {
-  cases.push({ ref:'', name:'', handler:'', renewal:'', phones:[], audited:false, inProgress:false });
+async function addManualCase() {
+  const { data, error } = await sb.from('cases').insert({
+    month_key: currentMonth, ref:'', name:'', renewal_date:null, phones:[], audited:false, in_progress:false
+  }).select().single();
+  if (error) { alert('Could not create case: ' + error.message); return; }
+  if (!knownMonths.includes(currentMonth)) knownMonths.push(currentMonth);
+  cases.push(dbCaseToLocal(data, null));
   currentCaseIdx = cases.length - 1;
   document.getElementById('clientRef').value = '';
   document.getElementById('clientName').value = '';
@@ -1317,14 +1335,14 @@ function addManualCase() {
   switchView('audit');
 }
 
-function clearQueue() {
+async function clearQueue() {
   const btn = document.getElementById('clearQueueBtn');
   if (btn.dataset.confirm === '1') {
+    const { error } = await sb.from('cases').delete().eq('month_key', currentMonth);
+    if (error) { alert('Could not clear month: ' + error.message); return; }
     cases = [];
-    allMonthBatches[currentMonth] = [];
     btn.textContent = 'Clear Month';
     btn.dataset.confirm = '0';
-    saveQueueToStorage();
     renderQueue();
   } else {
     btn.textContent = 'Click again to confirm';
@@ -1372,7 +1390,7 @@ async function importActuris(input) {
 
     const isPhone = v => v && /^[\+\d][\d\s\+\(\)\-\.]{5,}$/.test(v.trim());
 
-    let imported = 0;
+    const rowsToInsert = [];
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || !row.length || row.every(c => !c)) continue;
@@ -1386,19 +1404,28 @@ async function importActuris(input) {
         if (!isPhone(v)) return '';
         return v;
       };
-      cases.push({
+      const handlerRow = handlersByName[handlerVal];
+      rowsToInsert.push({
+        month_key: currentMonth,
         ref: g(refCol), name: g(nameCol),
-        handler: handlerVal, renewal: normaliseDate(g(renewCol)),
-        policyType: g(policyCol),
+        handler_id: handlerRow ? handlerRow.id : null,
+        renewal_date: normaliseDate(g(renewCol)) || null,
+        policy_type: g(policyCol),
         phones: [safePhone(phone1Col), safePhone(phone2Col), safePhone(phone3Col)].filter(Boolean),
-        audited: false, inProgress: false
+        audited: false, in_progress: false
       });
-      imported++;
+    }
+
+    let imported = 0;
+    if (rowsToInsert.length) {
+      const { data, error } = await sb.from('cases').insert(rowsToInsert).select();
+      if (error) { showImportError('Import failed: ' + error.message); return; }
+      imported = data.length;
+      data.forEach(c => cases.push(dbCaseToLocal(c, null)));
+      if (!knownMonths.includes(currentMonth)) knownMonths.push(currentMonth);
     }
     input.value = '';
     showImportSuccess(`Imported ${imported} case${imported !== 1 ? 's' : ''} successfully.`);
-    allMonthBatches[currentMonth] = cases;
-    await saveQueueToStorage();
     renderQueue();
   };
 
@@ -2273,8 +2300,8 @@ async function storageGet(key) {
 
 async function saveToStorage() {
   try {
-    const existing = await loadHistory();
     const c = cases[currentCaseIdx];
+    if (!c || !c.id) { console.warn('No case id — cannot save to database.'); return; }
     const applicable = Object.values(c.result.scores).filter(v => v.applicable);
     const total = applicable.reduce((s,v) => s+(v.score||0), 0);
     const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
@@ -2282,35 +2309,64 @@ async function saveToStorage() {
     const compFails = compResults.filter(r => r === 'fail').length;
     const compGrade = compFails === 0 ? 'PASS' : compFails === compResults.length ? 'FAIL' : 'PARTIAL';
 
-    const record = {
-      id: (c.ref||'case') + '_' + Date.now(),
-      ref: c.ref, name: c.name, handler: c.handler,
-      renewal: c.renewal, auditedAt: c.auditedAt,
-      score: total, maxScore: maxT,
-      scorePct: maxT > 0 ? total/maxT : 0,
-      compGrade: compGrade,
-      compFails: compFails,
-      callTypes: c.result.callTypes || [],
-      scores: c.result.scores,
-      compliance: c.result.compliance,
-      businessSolutions: c.result.businessSolutions,
-      summary: c.result.summary,
-      gaps: c.result.gaps,
-      nextSteps: c.result.nextSteps
-    };
+    const handlerRow = handlersByName[c.handler];
+    const handlerId = handlerRow ? handlerRow.id : null;
 
-    existing.push(record);
-    await storageSet(STORAGE_KEY, existing);
-    await saveQueueToStorage();
+    // Keep the case row's current state in sync (name/handler/renewal may have
+    // been edited on this pass, and audited/in_progress flags update here)
+    await sb.from('cases').update({
+      ref: c.ref, name: c.name, handler_id: handlerId,
+      renewal_date: c.renewal || null, policy_type: c.policyType || null,
+      phones: c.phones || [], audited: true, in_progress: false,
+      updated_at: new Date().toISOString()
+    }).eq('id', c.id);
+
+    // Every call to saveToStorage() writes a new audits row — this matches
+    // the original localStorage behaviour exactly (SOF ticks, compliance
+    // overrides, and manual edits each pushed a fresh history entry there
+    // too). Worth revisiting once real usage shows whether that's desired
+    // or whether these should update the same row instead.
+    const { error } = await sb.from('audits').insert({
+      case_id: c.id, handler_id: handlerId, auditor_id: currentHandlerRow?.id || null,
+      audited_at: c.auditedAt || new Date().toISOString(),
+      score: total, max_score: maxT, score_pct: maxT > 0 ? total/maxT : 0,
+      comp_grade: compGrade, comp_fails: compFails,
+      call_types: c.result.callTypes || [], scores: c.result.scores,
+      compliance: c.result.compliance, business_solutions: c.result.businessSolutions,
+      sof_data: c.sofData || null, summary: c.result.summary,
+      strengths: c.result.strengths || [], gaps: c.result.gaps || [], dev_plan: c.result.devPlan || []
+    });
+
+    if (error) { console.warn('Audit save failed:', error); return; }
     updateExportReminder();
-    showStorageStatus('✓ Saved automatically');
+    showStorageStatus('✓ Saved to database');
   } catch(e) {
     console.warn('Storage save failed:', e);
   }
 }
 
 async function loadHistory() {
-  return (await storageGet(STORAGE_KEY)) || [];
+  const { data: auditRows, error } = await sb.from('audits').select('*').order('audited_at', { ascending: true });
+  if (error) { console.warn('History load failed:', error); return []; }
+  const caseIds = [...new Set(auditRows.map(a => a.case_id).filter(Boolean))];
+  let casesById = {};
+  if (caseIds.length) {
+    const { data: caseRows } = await sb.from('cases').select('*').in('id', caseIds);
+    (caseRows||[]).forEach(c => { casesById[c.id] = c; });
+  }
+  return auditRows.map(a => {
+    const c = casesById[a.case_id] || {};
+    const handlerName = a.handler_id ? (handlersById[a.handler_id]?.name || '') : '';
+    return {
+      id: a.id, ref: c.ref || '', name: c.name || '', handler: handlerName,
+      renewal: c.renewal_date || '', auditedAt: a.audited_at,
+      score: a.score, maxScore: a.max_score, scorePct: a.score_pct,
+      compGrade: a.comp_grade, compFails: a.comp_fails,
+      callTypes: a.call_types || [], scores: a.scores, compliance: a.compliance,
+      businessSolutions: a.business_solutions, sofData: a.sof_data,
+      summary: a.summary, gaps: a.gaps, devPlan: a.dev_plan
+    };
+  });
 }
 
 async function showStorageStatus(msg) {
@@ -2339,14 +2395,27 @@ async function importHistory(input) {
   reader.onload = async e => {
     try {
       const imported = JSON.parse(e.target.result);
-      const existing = await loadHistory();
-      const existingIds = new Set(existing.map(r => r.id));
-      const newRecords = imported.filter(r => !existingIds.has(r.id));
-      const merged = [...existing, ...newRecords];
-      await storageSet(STORAGE_KEY, merged);
+      // Imported records are historical snapshots from an old export and
+      // won't map to a live case row in this database, so they're inserted
+      // with case_id left blank — dashboard/reports only need the handler
+      // name and scores, not a live case link, so this is fine for that use.
+      const rowsToInsert = imported.map(r => {
+        const handlerRow = handlersByName[r.handler];
+        return {
+          case_id: null, handler_id: handlerRow ? handlerRow.id : null, auditor_id: currentHandlerRow?.id || null,
+          audited_at: r.auditedAt || new Date().toISOString(),
+          score: r.score, max_score: r.maxScore, score_pct: r.scorePct,
+          comp_grade: r.compGrade, comp_fails: r.compFails,
+          call_types: r.callTypes || [], scores: r.scores, compliance: r.compliance,
+          business_solutions: r.businessSolutions, sof_data: r.sofData || null,
+          summary: r.summary, strengths: r.strengths || [], gaps: r.gaps || [], dev_plan: r.devPlan || []
+        };
+      });
+      const { data, error } = await sb.from('audits').insert(rowsToInsert).select();
+      if (error) { alert('Import failed: ' + error.message); return; }
       input.value = '';
       renderDashboard();
-      showStorageStatus('✓ Imported ' + newRecords.length + ' new records (' + merged.length + ' total)');
+      showStorageStatus('✓ Imported ' + data.length + ' historical records');
     } catch(err) { alert('Could not read history file: ' + err.message); }
   };
   reader.readAsText(file);
@@ -2999,8 +3068,12 @@ function initTrendsSuggestions() {
 async function hardReset() {
   const btn = document.getElementById('hardResetBtn');
   if (!btn) return;
+  if (!currentHandlerRow?.is_admin) {
+    alert('Only admins can reset all data — this now affects the whole team\'s database, not just your browser.');
+    return;
+  }
   if (btn.dataset.confirm !== '1') {
-    btn.textContent = 'Click again to confirm full reset';
+    btn.textContent = 'Click again to confirm — this deletes ALL data for EVERYONE';
     btn.dataset.confirm = '1';
     btn.style.background = 'var(--danger-bg)';
     btn.style.borderColor = 'var(--danger-border)';
@@ -3014,19 +3087,17 @@ async function hardReset() {
     }, 4000);
     return;
   }
-  const keys = ['qcg-audit-history','qcg-all-batches','qcg-current-month','qcg-last-export','qcg-audit-queue'];
-  for (const k of keys) {
-    try { await window.storage.delete(k); } catch(e) {}
-    try { localStorage.removeItem(k); } catch(e) {}
-  }
-  allMonthBatches = {};
+  // Deleting all cases cascades to delete their audits too (FK on delete cascade)
+  const { error } = await sb.from('cases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) { alert('Reset failed: ' + error.message); return; }
   currentMonth = getCurrentMonthKey();
+  knownMonths = [];
   cases = [];
   currentCaseIdx = null;
   lastExportTime = null;
   renderMonthSelect();
   renderQueue();
-  showStorageStatus('✓ All data cleared — fresh start');
+  showStorageStatus('✓ All data cleared for everyone — fresh start');
 }
 
 function exportPDF() {
