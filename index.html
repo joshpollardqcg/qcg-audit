@@ -724,7 +724,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 <div class="view" id="viewHandlers">
   <div style="max-width:700px;margin:0 auto;padding:28px 32px">
     <div style="font-family:'Lora',serif;font-size:20px;font-weight:500;margin-bottom:6px">Teams &amp; Handlers</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Manage teams and assign handlers. Changes here last for this session. To make permanent changes, edit DEFAULT_TEAMS in the file and re-upload to SharePoint.</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Manage teams and assign handlers. Changes here save immediately and are visible to everyone on the team.</div>
     <div id="teamsViewWrap"></div>
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Danger Zone</div>
@@ -935,10 +935,20 @@ let handlersById = {};      // Supabase handlers.id -> row
 let handlersByName = {};    // handler name -> row
 
 async function loadHandlersCache() {
-  const { data, error } = await sb.from('handlers').select('*');
+  const { data: teamRows } = await sb.from('teams').select('*').order('name');
+  const { data: handlerRows, error } = await sb.from('handlers').select('*').order('name');
   if (error) { console.warn('Handlers load failed:', error); return; }
   handlersById = {}; handlersByName = {};
-  (data||[]).forEach(h => { handlersById[h.id] = h; handlersByName[h.name] = h; });
+  (handlerRows||[]).forEach(h => { handlersById[h.id] = h; handlersByName[h.name] = h; });
+
+  // Rebuild sessionTeams/sessionUnassigned from the DB — same shape the UI
+  // already reads (renderTeamsView, renderHandlerSelect, allHandlers,
+  // handlerTeam), just sourced from Supabase instead of DEFAULT_TEAMS now.
+  sessionTeams = (teamRows||[]).map(t => ({
+    id: t.id, name: t.name,
+    handlers: (handlerRows||[]).filter(h => h.team_id === t.id).map(h => h.name)
+  }));
+  sessionUnassigned = (handlerRows||[]).filter(h => !h.team_id).map(h => h.name);
 }
 
 async function loadKnownMonths() {
@@ -2223,49 +2233,70 @@ function renderTeamsView() {
   wrap.appendChild(addTeam);
 }
 
-function addHandlerToTeam(ti) {
+async function addHandlerToTeam(ti) {
   const input = document.getElementById('newHandlerTeam_' + ti);
   const name = input.value.trim();
   if (!name) return;
-  sessionUnassigned = sessionUnassigned.filter(h => h !== name);
-  sessionTeams.forEach(t => { t.handlers = t.handlers.filter(h => h !== name); });
-  sessionTeams[ti].handlers.push(name);
+  const teamId = sessionTeams[ti].id;
+  const existing = handlersByName[name];
+  if (existing) {
+    await sb.from('handlers').update({ team_id: teamId }).eq('id', existing.id);
+  } else {
+    await sb.from('handlers').insert({ name, team_id: teamId });
+  }
   input.value = '';
+  await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
 }
 
-function removeHandlerFromTeam(ti, name) {
-  sessionTeams[ti].handlers = sessionTeams[ti].handlers.filter(h => h !== name);
-  sessionUnassigned.push(name);
+async function removeHandlerFromTeam(ti, name) {
+  const h = handlersByName[name];
+  if (h) await sb.from('handlers').update({ team_id: null }).eq('id', h.id);
+  await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
 }
 
-function moveToTeam(name, ti) {
+async function moveToTeam(name, ti) {
   if (ti === '') return;
-  sessionUnassigned = sessionUnassigned.filter(h => h !== name);
-  sessionTeams.forEach(t => { t.handlers = t.handlers.filter(h => h !== name); });
-  sessionTeams[parseInt(ti)].handlers.push(name);
+  const h = handlersByName[name];
+  const teamId = sessionTeams[parseInt(ti)].id;
+  if (h) await sb.from('handlers').update({ team_id: teamId }).eq('id', h.id);
+  await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
 }
 
-function removeUnassigned(name) {
-  sessionUnassigned = sessionUnassigned.filter(h => h !== name);
+async function removeUnassigned(name) {
+  // This is now a real, permanent delete of the handler record — not just a
+  // session-local list removal like it was on localStorage. Their past
+  // audits keep their scores but lose the name link once this runs, since
+  // handler_id references this row with ON DELETE SET NULL.
+  if (!confirm(`Permanently delete handler "${name}"? This cannot be undone. Their past audits will keep their scores but lose the handler name link.`)) return;
+  const h = handlersByName[name];
+  if (h) await sb.from('handlers').delete().eq('id', h.id);
+  await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
 }
 
-function renameTeam(ti) {
+async function renameTeam(ti) {
   const name = prompt('New team name:', sessionTeams[ti].name);
-  if (name && name.trim()) { sessionTeams[ti].name = name.trim(); renderTeamsView(); renderHandlerSelect(); }
+  if (!name || !name.trim()) return;
+  await sb.from('teams').update({ name: name.trim() }).eq('id', sessionTeams[ti].id);
+  await loadHandlersCache();
+  renderTeamsView();
+  renderHandlerSelect();
 }
 
-function addTeam_fn() {
+async function addTeam_fn() {
   const name = prompt('Team name:');
   if (!name || !name.trim()) return;
-  sessionTeams.push({ id: 'team_' + Date.now(), name: name.trim(), handlers: [] });
+  const id = 'team_' + Date.now();
+  const { error } = await sb.from('teams').insert({ id, name: name.trim() });
+  if (error) { alert('Could not create team: ' + error.message); return; }
+  await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
 }
