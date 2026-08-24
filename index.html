@@ -55,10 +55,10 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:0 3
 .queue-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap}
 .queue-title{font-family:'Jost',sans-serif;font-size:20px;font-weight:500}
 .queue-actions{display:flex;gap:10px;align-items:center}
-.import-btn{display:flex;align-items:center;gap:7px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25)}
+.import-btn{display:flex;align-items:center;gap:7px;background:var(--qc);color:white;border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;transition:background .15s;box-shadow:0 2px 8px rgba(172,75,130,0.25);text-transform:none;letter-spacing:normal}
 .import-btn:hover{background:var(--qc-dark)}
 .import-btn input[type=file]{display:none}
-.sec-btn{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--text);border:1px solid var(--border2);border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer;transition:all .15s}
+.sec-btn{display:flex;align-items:center;gap:7px;background:var(--white);color:var(--text);border:1px solid var(--border2);border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;padding:9px 16px;cursor:pointer;transition:all .15s;text-transform:none;letter-spacing:normal}
 .sec-btn:hover{border-color:var(--qc);color:var(--qc)}
 
 /* PROGRESS BAR */
@@ -838,10 +838,13 @@ async function onAuthed(user) {
   document.getElementById('userBadge').style.display = 'flex';
   document.getElementById('userBadgeName').textContent = handlerRow.name + (handlerRow.is_admin ? ' (admin)' : '');
 
-  // App init, now that we know who's logged in
-  renderHandlerSelect();
+  // App init, now that we know who's logged in.
+  // Order matters here: initAppData() must finish before renderHandlerSelect()
+  // runs, otherwise the dropdown briefly shows the hardcoded DEFAULT_TEAMS
+  // list instead of your real Supabase data.
   initCallSlots();
   await initAppData();
+  renderHandlerSelect();
 }
 
 // On page load, check for an existing session before showing the login form
@@ -1995,12 +1998,14 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   } else {
     allCoveredMsg.style.display = 'none';
     gapContainer.style.display = 'flex';
+    const savedSof = (currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData : null) || {};
     relevantItems.forEach(item => {
       const row = document.createElement('label');
       row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);cursor:pointer;padding:5px 0;border-bottom:1px solid var(--border)';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.id = item.id;
+      cb.checked = !!savedSof[item.id]; // restore prior tick state when reopening an already-audited case
       cb.style.cssText = 'width:14px;height:14px;accent-color:var(--qc);flex-shrink:0;margin-top:2px';
       cb.onchange = () => onSOFChange();
       const span = document.createElement('span');
@@ -2010,6 +2015,9 @@ function render(r, clientName, clientRef, handler, renewalDate) {
       row.appendChild(span);
       gapContainer.appendChild(row);
     });
+    // Reflect the restored (or freshly empty) state in the Material Facts badge
+    // immediately, without writing a new audit row just from viewing the case.
+    onSOFChange(false);
   }
 
   const devPlanCard = document.getElementById('devPlanCard');
@@ -2620,7 +2628,7 @@ function renderMonthlyTrend(data) {
   }).join('');
 }
 
-function onSOFChange() {
+function onSOFChange(persist = true) {
   if (!lastResult) return;
 
   const buildingTicked = document.getElementById('sofBuilding')?.checked;
@@ -2650,7 +2658,7 @@ function onSOFChange() {
     }
   }
 
-  if (currentCaseIdx !== null) {
+  if (persist && currentCaseIdx !== null) {
     cases[currentCaseIdx].sofData = {
       sofSent: document.getElementById('sofSent')?.value || '',
       sofReturned: document.getElementById('sofReturned')?.value || '',
