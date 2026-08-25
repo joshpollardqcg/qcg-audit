@@ -440,7 +440,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           <button onclick="find8x8Calls()" id="find8x8Btn" style="background:var(--qc);color:white;border:none;border-radius:7px;font-family:'Jost',sans-serif;font-size:12px;font-weight:600;padding:8px 14px;cursor:pointer;white-space:nowrap">Find calls</button>
         </div>
         <div style="font-size:10px;color:var(--muted2);margin-top:5px">Searches the last 2 months. Pick which recordings to pull in — up to as many empty call slots as you have below.</div>
-        <div id="fetch8x8Status" style="display:none;font-size:11px;margin-top:6px;padding:8px 10px;border-radius:6px"></div>
+        <div id="fetch8x8Status" style="display:none;font-size:11px;margin-top:6px;padding:8px 10px;border-radius:6px;white-space:pre-line"></div>
         <div id="fetch8x8Results" style="display:none;margin-top:8px;display:flex;flex-direction:column;gap:5px"></div>
         <button onclick="pullSelected8x8Calls()" id="pullSelected8x8Btn" style="display:none;width:100%;margin-top:8px;background:var(--qc);color:white;border:none;border-radius:7px;font-family:'Jost',sans-serif;font-size:12px;font-weight:600;padding:9px;cursor:pointer">Pull selected into slots</button>
       </div>
@@ -1702,31 +1702,50 @@ async function find8x8Calls() {
 
   btn.disabled = true;
   btn.textContent = 'Searching...';
-  setFetch8x8Status('Searching 8x8...', 'info');
+
+  found8x8Recordings = [];
+  let pageKey = 0;
+  let lastPage = false;
+  let pagesScanned = 0;
+  let totalScanned = 0;
+  const MAX_PAGES = 100; // defensive cap — 100 pages × 100 recordings = 10,000 checked, well beyond 2 months of realistic volume
+  let filterTestResult = null;
 
   try {
-    const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/list-recordings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, months_back: 2 })
-    });
-    const data = await res.json();
+    while (!lastPage && pagesScanned < MAX_PAGES) {
+      setFetch8x8Status(`Searching 8x8... page ${pagesScanned + 1} (${totalScanned} recordings checked, ${found8x8Recordings.length} match${found8x8Recordings.length!==1?'es':''} so far)`, 'info');
 
-    if (!data.configured) {
-      setFetch8x8Status('⚠ ' + (data.message || '8x8 integration not yet configured.'), 'warn');
-      return;
+      const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/list-recordings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, months_back: 2, pageKey })
+      });
+      const data = await res.json();
+
+      if (!data.configured) { setFetch8x8Status('⚠ ' + (data.message || '8x8 integration not yet configured.'), 'warn'); return; }
+      if (data.error) { setFetch8x8Status('⚠ ' + data.error, 'warn'); return; }
+
+      found8x8Recordings = found8x8Recordings.concat(data.recordings || []);
+      totalScanned += data.scannedCount || 0;
+      lastPage = data.lastPage;
+      pageKey = data.nextPageKey;
+      pagesScanned++;
+
+      if (data.filterTest) filterTestResult = data.filterTest;
     }
-    if (data.error) {
-      setFetch8x8Status('⚠ ' + data.error, 'warn');
-      return;
-    }
-    found8x8Recordings = data.recordings || [];
+
+    found8x8Recordings.sort((a, b) => new Date(b.createdTime) - new Date(a.createdTime));
+
+    const filterTestLine = filterTestResult
+      ? `\n\n8x8 filter test: ${filterTestResult.supported === true ? '✓ supported' : filterTestResult.supported === 'unclear' ? '? unclear' : '✗ not supported'} — ${filterTestResult.reason}`
+      : '';
+
     if (!found8x8Recordings.length) {
-      setFetch8x8Status('No recordings found for this number in the last 2 months.', 'info');
+      setFetch8x8Status(`No recordings found for this number (checked ${totalScanned} recordings across the last 2 months).` + filterTestLine, 'info');
       return;
     }
 
-    setFetch8x8Status(`Found ${found8x8Recordings.length} recording${found8x8Recordings.length!==1?'s':''} — pick which to pull in:`, 'ok');
+    setFetch8x8Status(`Found ${found8x8Recordings.length} recording${found8x8Recordings.length!==1?'s':''} (out of ${totalScanned} checked) — pick which to pull in:` + filterTestLine, 'ok');
     resultsEl.style.display = 'flex';
     found8x8Recordings.forEach((rec, i) => {
       const dateStr = rec.createdTime ? new Date(rec.createdTime).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : 'date unknown';
