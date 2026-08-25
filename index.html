@@ -355,7 +355,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
       <div class="empty-queue">
         <h3>No cases yet</h3>
         <p>Import your Acturis CSV to pre-populate the queue, or add a case manually using the button above.</p>
-        <p style="margin-top:10px;font-size:12px;color:var(--muted2)">The CSV should contain columns: Client Reference, Client Name, Phone Number 1, Phone Number 2, Phone Number 3, Handler, Renewal Date</p>
+        <p style="margin-top:10px;font-size:12px;color:var(--muted2)">Expects the standard Acturis export columns: Contact Ref., Contact Name, Policy Account Exec, Policy Type, Primary Contact Work Phone, Primary Contact Home Phone. Reduce to one row per client before importing.</p>
       </div>
     </div>
   </div>
@@ -1227,7 +1227,7 @@ function renderQueue() {
   countTab.textContent = cases.length;
 
   if (cases.length === 0) {
-    grid.innerHTML = '<div class="empty-queue"><h3>No cases yet</h3><p>Import your Acturis CSV to pre-populate the queue, or add a case manually using the button above.</p><p style="margin-top:10px;font-size:12px;color:var(--muted2)">The CSV should contain columns: Client Reference, Client Name, Phone Number 1, Phone Number 2, Phone Number 3, Handler, Renewal Date</p></div>';
+    grid.innerHTML = '<div class="empty-queue"><h3>No cases yet</h3><p>Import your Acturis CSV to pre-populate the queue, or add a case manually using the button above.</p><p style="margin-top:10px;font-size:12px;color:var(--muted2)">Expects the standard Acturis export columns: Contact Ref., Contact Name, Policy Account Exec, Policy Type, Primary Contact Work Phone, Primary Contact Home Phone. Reduce to one row per client before importing.</p></div>';
     progressWrap.style.display = 'none';
     return;
   }
@@ -1444,18 +1444,26 @@ async function importActuris(input) {
     const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
     const col = name => headers.findIndex(h => h === name.toLowerCase());
 
-    const refCol      = col('client reference');
-    const nameCol     = col('client name');
-    const phone1Col   = col('phone number 1');
-    const phone2Col   = col('phone number 2');
-    const phone3Col   = col('phone number 3');
-    const handlerCol  = col('handler');
-    const renewCol    = col('renewal date');
-    const policyCol   = col('policy type') > -1 ? col('policy type') : col('type');
+    // Matched against the real Acturis export ("01 Advanced Policy Version
+    // Report — Post Acceptance Policies"), not the old placeholder names.
+    // Business Event is ignored entirely — nothing in the tool needs it.
+    const refCol      = col('contact ref.');
+    const nameCol     = col('contact name');
+    const handlerCol  = col('policy account exec'); // NOT 'policy account handler' — that field is a
+                                                       // system placeholder ("User, Archive") on almost
+                                                       // every real row, the actual handler lives here
+    const phone1Col   = col('primary contact work phone');
+    const phone2Col   = col('primary contact home phone');
+    const policyCol   = col('policy type');
+    // No renewal date column exists in this export — Policy Effective Date
+    // (TZ) is the policy's inception date, not its renewal date, and using
+    // it would show clients' original start dates as if they were upcoming
+    // renewals. Left blank on import; fill in per case by hand as needed.
 
     const isPhone = v => v && /^[\+\d][\d\s\+\(\)\-\.]{5,}$/.test(v.trim());
 
     const rowsToInsert = [];
+    const refCounts = {};
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || !row.length || row.every(c => !c)) continue;
@@ -1470,13 +1478,15 @@ async function importActuris(input) {
         return v;
       };
       const handlerRow = handlersByName[handlerVal];
+      const ref = g(refCol);
+      if (ref) refCounts[ref] = (refCounts[ref] || 0) + 1;
       rowsToInsert.push({
         month_key: currentMonth,
-        ref: g(refCol), name: g(nameCol),
+        ref, name: g(nameCol),
         handler_id: handlerRow ? handlerRow.id : null,
-        renewal_date: normaliseDate(g(renewCol)) || null,
+        renewal_date: null,
         policy_type: g(policyCol),
-        phones: [safePhone(phone1Col), safePhone(phone2Col), safePhone(phone3Col)].filter(Boolean),
+        phones: [safePhone(phone1Col), safePhone(phone2Col)].filter(Boolean),
         audited: false, in_progress: false
       });
     }
@@ -1490,7 +1500,16 @@ async function importActuris(input) {
       if (!knownMonths.includes(currentMonth)) knownMonths.push(currentMonth);
     }
     input.value = '';
-    showImportSuccess(`Imported ${imported} case${imported !== 1 ? 's' : ''} successfully.`);
+
+    // Safety net: if the same Contact Ref. appears more than once, that's a
+    // sign the file wasn't reduced to one row per client before importing —
+    // doesn't block the import, just flags it so it's not missed silently.
+    const duplicateRefs = Object.entries(refCounts).filter(([, count]) => count > 1).map(([ref]) => ref);
+    if (duplicateRefs.length) {
+      showImportError(`Imported ${imported} case${imported !== 1 ? 's' : ''}, but ${duplicateRefs.length} client ref${duplicateRefs.length !== 1 ? 's' : ''} appeared more than once (${duplicateRefs.slice(0, 5).join(', ')}${duplicateRefs.length > 5 ? '…' : ''}) — check the file was reduced to one row per client before importing.`);
+    } else {
+      showImportSuccess(`Imported ${imported} case${imported !== 1 ? 's' : ''} successfully.`);
+    }
     renderQueue();
   };
 
@@ -2132,6 +2151,9 @@ Generate 3-5 specific, actionable development points for the handler based on th
       })
     });
     const data = await res.json();
+    if (data.error || !data.content) {
+      throw new Error(data.error || 'The scoring service returned an unexpected response.');
+    }
     const raw = data.content.map(i => i.text||'').join('');
     const result = JSON.parse(raw.replace(/```json|```/g,'').trim());
     lastResult = result;
@@ -3148,6 +3170,9 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
       body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1500, system: systemPrompt, messages: auditChatHistory })
     });
     const data = await res.json();
+    if (data.error || !data.content) {
+      throw new Error(data.error || 'The chat service returned an unexpected response.');
+    }
     const reply = data.content.map(i=>i.text||'').join('');
     auditChatHistory.push({ role:'assistant', content: reply });
     thinking.remove();
@@ -3175,7 +3200,7 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
     document.getElementById('auditChatMessages').scrollTop = 99999;
   } catch(e) {
     thinking.remove();
-    addChatMsg('auditChatMessages', 'Sorry, something went wrong. Please try again.', 'thinking');
+    addChatMsg('auditChatMessages', 'Sorry, something went wrong: ' + e.message, 'thinking');
   }
 }
 
@@ -3327,13 +3352,16 @@ Be direct, specific and actionable. Reference actual handler names and numbers. 
       body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system: systemPrompt, messages: trendsChatHistory })
     });
     const data2 = await res.json();
+    if (data2.error || !data2.content) {
+      throw new Error(data2.error || 'The chat service returned an unexpected response.');
+    }
     const reply = data2.content.map(i=>i.text||'').join('');
     trendsChatHistory.push({ role:'assistant', content: reply });
     thinking.remove();
     addChatMsg('trendsChatMessages', reply, 'assistant');
   } catch(e) {
     thinking.remove();
-    addChatMsg('trendsChatMessages', 'Sorry, something went wrong. Please try again.', 'thinking');
+    addChatMsg('trendsChatMessages', 'Sorry, something went wrong: ' + e.message, 'thinking');
   }
 }
 
