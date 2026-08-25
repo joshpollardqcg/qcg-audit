@@ -1708,6 +1708,7 @@ async function find8x8Calls() {
   let lastPage = false;
   let batchesFetched = 0;
   let totalScanned = 0;
+  let totalExtracted = 0;
   const MAX_BATCHES = 20; // 20 batches × up to 10 pages × 100 recordings = 20,000 checked, well beyond 2 months of realistic volume
   let filterTestResult = null;
 
@@ -1727,6 +1728,7 @@ async function find8x8Calls() {
 
       found8x8Recordings = found8x8Recordings.concat(data.recordings || []);
       totalScanned += data.scannedCount || 0;
+      totalExtracted += data.extractedCount || 0;
       lastPage = data.lastPage;
       pageKey = data.nextPageKey;
       batchesFetched++;
@@ -1741,7 +1743,12 @@ async function find8x8Calls() {
       : '';
 
     if (!found8x8Recordings.length) {
-      setFetch8x8Status(`No recordings found for this number (checked ${totalScanned} recordings across the last 2 months).` + filterTestLine, 'info');
+      const extractRate = totalScanned ? Math.round((totalExtracted / totalScanned) * 100) : 0;
+      const extractLine = `\n\nPhone number parsing worked on ${totalExtracted} of ${totalScanned} recordings checked (${extractRate}%).` +
+        (extractRate < 70
+          ? ' That\'s low enough that some real matches may be getting missed due to a filename format the parser doesn\'t recognise, not because this number genuinely has no calls.'
+          : ' Parsing is working on most recordings, so this number most likely genuinely has no calls in this window.');
+      setFetch8x8Status(`No recordings found for this number (checked ${totalScanned} recordings across the last 2 months).` + extractLine + filterTestLine, 'info');
       return;
     }
 
