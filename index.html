@@ -382,18 +382,32 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           <div class="f" style="grid-column:1/-1">
             <label>Policy Types <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">select all that apply</span></label>
             <div id="policyTypeWrap" style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CARE" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CARE</strong> — Care Home</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CHEX" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CHEX</strong> — Care Home Excess Liabilities</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CHDO" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CHDO</strong> — Care Home D&amp;O</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CHTE" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CHTE</strong> — Care Home Terrorism</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CHEG" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CHEG</strong> — Care Home Engineering</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="CHPO" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">CHPO</strong> — Care Home Property Owners</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="GIPO" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">GIPO</strong> — General Insurance Property Owners</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="GITE" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">GITE</strong> — General Insurance Terrorism</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="GICA" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">GICA</strong> — General Insurance Claims Assistance</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="GIRE" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">GIRE</strong> — General Insurance Recruitment</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="HOMC" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">HOMC</strong> — Home Care</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="HCDO" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span><strong style="font-size:11px">HCDO</strong> — Home Care D&amp;O</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Combined Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Combined Liability</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Commercial Combined Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Commercial Combined Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Commercial Loss Recovery" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Commercial Loss Recovery</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Contract Works" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Contract Works</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Cyber Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Cyber Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Domiciliary Care" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Domiciliary Care</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Engineering Inspection" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Engineering Inspection</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Excess Liability Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Excess Liability Combined</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Excess Public Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Excess Public Liability</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Fleet" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Fleet</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Claims Assistance" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Claims Assistance</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Excess Protection" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Excess Protection</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Insurance Misc" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Insurance Misc</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Legal Expenses" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Legal Expenses</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Services and Helplines" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Services and Helplines</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Management Liability Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Management Liability Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Minibus" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Minibus</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Nursing &amp; Care Homes Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Nursing &amp; Care Homes Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Offices &amp; Surgeries Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Offices &amp; Surgeries Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PA and Business Travel" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PA and Business Travel</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Personal Household Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Personal Household Combined</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PI" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PI</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PI Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PI Combined</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Property Owners" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Property Owners</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Pubs &amp; Restaurants Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Pubs &amp; Restaurants Package</span></label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Terrorism" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Terrorism</span></label>
             </div>
           </div>
         </div>
@@ -910,7 +924,8 @@ const SCORE_LABELS = {
   closingProactivity:'Closing Proactivity',
   coverConfirmation:'Cover Confirmation',
   lastMileCrossSell:'Last Mile Cross-sell',
-  relationshipClose:'Relationship Close'
+  relationshipClose:'Relationship Close',
+  renewalChallenge:'Renewal Challenge Quality'
 };
 
 const BS_LABELS = {
@@ -1023,7 +1038,16 @@ function monthKeyToLabel(key) {
   return new Date(y, parseInt(m)-1, 1).toLocaleDateString('en-GB', { month:'long', year:'numeric' });
 }
 
-const DOM_TYPES = ['HOMC','HCDO','CHDO','CHEX','CHTE','GITE','CHEG','GICA','GIRE'];
+// Types where RV auto-skips to N/A — the exact list Sahaj was given directly.
+// RV IS relevant (never auto-skipped) for: Combined Liability, Commercial
+// Combined Package, Contract Works, Domiciliary Care, General Insurance
+// Misc, General Services and Helplines, Nursing & Care Homes Package,
+// Offices & Surgeries Package, Personal Household Combined, PI Combined,
+// Property Owners, Pubs & Restaurants Package, Terrorism.
+const DOM_TYPES = ['Commercial Loss Recovery','Cyber Package','Engineering Inspection',
+  'Excess Liability Combined','Excess Public Liability','Fleet','General Claims Assistance',
+  'General Excess Protection','General Legal Expenses','Management Liability Package',
+  'Minibus','PA and Business Travel','PI'];
 
 function getSelectedPolicyTypes() {
   return [...document.querySelectorAll('.policy-type-cb:checked')].map(cb => cb.value);
@@ -1031,7 +1055,7 @@ function getSelectedPolicyTypes() {
 
 function isRVNotApplicable(policyTypes) {
   if (!policyTypes || !policyTypes.length) return false;
-  return policyTypes.every(pt => DOM_TYPES.includes(pt.toUpperCase().trim()));
+  return policyTypes.every(pt => DOM_TYPES.includes(pt.trim()));
 }
 
 function updateRVFromPolicyType() {
@@ -1114,7 +1138,7 @@ async function exportCSV() {
   const headers = ['Month','Client Ref','Client Name','Handler','Renewal Date','Audited At','Score','Max Score',
     'Contact Strategy','Client Resistance','Call Effectiveness','Technical','Commercial',
     'Presentation Confidence','Market Context','Objection Handling','Engagement Check',
-    'Closing Proactivity','Cover Confirmation','Last Mile Cross-sell','Relationship Close',
+    'Closing Proactivity','Cover Confirmation','Last Mile Cross-sell','Relationship Close','Renewal Challenge',
     'RV','Cyber','D&O',
     'Recruitment BS','Energy BS','Risk BS','Wealth BS','Sales BS',
     'Summary','Strengths','Gaps','Next Steps','Dev Plan'];
@@ -1142,6 +1166,7 @@ async function exportCSV() {
       sc.coverConfirmation?.applicable ? sc.coverConfirmation?.score??'' : 'N/A',
       sc.lastMileCrossSell?.applicable ? sc.lastMileCrossSell?.score??'' : 'N/A',
       sc.relationshipClose?.applicable ? sc.relationshipClose?.score??'' : 'N/A',
+      sc.renewalChallenge?.applicable ? sc.renewalChallenge?.score??'' : 'N/A',
       co.RV?.result||'', co.Cyber?.result||'', co.DO?.result||'',
       bs.recruitment?.result||'', bs.energy?.result||'', bs.risk?.result||'', bs.wealth?.result||'', bs.sales?.result||'',
       r.summary||'', (r.strengths||[]).join(' | '), (r.gaps||[]).join(' | '), (r.nextSteps||[]).join(' | '), (r.devPlan||[]).join(' | ')
@@ -1494,14 +1519,27 @@ async function importActuris(input) {
                                                        // system placeholder ("User, Archive") on almost
                                                        // every real row, the actual handler lives here
     const phone1Col   = col('primary contact work phone');
-    const phone2Col   = col('primary contact home phone');
-    const policyCol   = col('policy type');
+    const phone2Col   = col('primary contact mobile'); // NOT home phone — confirmed against a real export
+    const policyCol   = col('product target'); // NOT 'policy type' — the real column is Product Target,
+                                                  // and its values match the audit form's policy-type
+                                                  // checkboxes exactly (e.g. "Combined Liability",
+                                                  // "Domiciliary Care") — confirmed against a real export
     // No renewal date column exists in this export — Policy Effective Date
     // (TZ) is the policy's inception date, not its renewal date, and using
     // it would show clients' original start dates as if they were upcoming
     // renewals. Left blank on import; fill in per case by hand as needed.
 
-    const isPhone = v => v && /^[\+\d][\d\s\+\(\)\-\.]{5,}$/.test(v.trim());
+    const isPhone = v => v && /^[\+\d\(][\d\s\+\(\)\-\.]{5,}$/.test(v.trim());
+
+    // Acturis stores handler names as "Lastname, Firstname" (e.g. "Edwards,
+    // Zak"), but handler records in the tool are "Firstname Lastname" (e.g.
+    // "Zak Edwards") — confirmed against a real export, this format
+    // mismatch, not the column name, was why handler never auto-populated.
+    const reformatHandlerName = v => {
+      if (!v || !v.includes(',')) return v;
+      const [last, first] = v.split(',').map(s => s.trim());
+      return first ? `${first} ${last}` : v;
+    };
 
     const rowsToInsert = [];
     const refCounts = {};
@@ -1509,7 +1547,7 @@ async function importActuris(input) {
       const row = rows[i];
       if (!row || !row.length || row.every(c => !c)) continue;
       const g = idx => (idx > -1 && row[idx] != null ? String(row[idx]).trim() : '');
-      const handlerVal = g(handlerCol);
+      const handlerVal = reformatHandlerName(g(handlerCol));
       const knownHandlers = allHandlers();
       const safePhone = idx => {
         const v = g(idx);
@@ -2035,7 +2073,8 @@ Return ONLY valid JSON with this exact structure — no preamble, no markdown:
     "closingProactivity": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false},
     "coverConfirmation": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false},
     "lastMileCrossSell": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false},
-    "relationshipClose": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false}
+    "relationshipClose": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false},
+    "renewalChallenge": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false}
   },
   "compliance": {
     "RV": {"result": "pass|fail|na", "note": "one sentence"},
@@ -2064,7 +2103,7 @@ contactStrategy (0-3):
 0 = No contact attempts at all
 1 = 1-2 attempts, no meaningful conversation achieved
 2 = Multiple attempts, some engagement but not a full renewal discussion
-3 = Proactive structured contact with meaningful renewal conversation achieved
+3 = Proactive structured contact with meaningful renewal conversation achieved. The standard is two or three attempts across different times of day, with a clear reason for calling left in any voicemail — not one unanswered call and giving up.
 Note: if 8x8 screenshot shows calls, use number and duration to inform this score. Calls under 2 minutes should not count as meaningful conversations.
 
 clientResistance (0-3):
@@ -2078,18 +2117,18 @@ callEffectiveness (0-3):
 0 = No call or no renewal content
 1 = Call made but minimal renewal content
 2 = Decent conversation but key topics missed
-3 = Comprehensive — business changes, cover adequacy, client questions all addressed
+3 = Comprehensive — business changes, cover adequacy, client questions all addressed. Critically: did the handler follow the client's answers and chase things that sounded material, rather than just working through a script? If the client mentions something offhand (a new contract, a change in how the business operates, an incident) and the handler moves straight to the next question without exploring it, that is a real gap even if every line on the form got covered — hearing exposures in what the client says, not just collecting answers, is one of the most important things a call is assessed on.
 
 technical (0-3):
 0 = No technical discussion
 1 = Basic cover confirmed, no depth
 2 = Some technical detail discussed
-3 = Full review: sums insured, reinstatement values, policy terms, business changes all addressed
+3 = Full review: sums insured, reinstatement values, policy terms, business changes all addressed — and the handler explained *why* the information mattered, not just gathered figures. Collecting a number without any accompanying advisory context (why this matters, what the risk actually is) should not score full marks even if the number itself was captured correctly.
 
 commercial (0-2):
 0 = No commercial discussion
 1 = Premium mentioned but no context
-2 = Premium discussed with market context and client questions handled
+2 = Premium discussed with market context and client questions handled. Every figure — premium, reinstatement value, BI figure — should land with a reason attached, not just be stated as a number.
 
 PRESENTATION CALL (set applicable: true if a presentation call is present):
 
@@ -2133,6 +2172,13 @@ relationshipClose (0-1):
 0 = Purely transactional ending
 1 = Reinforced relationship, thanked client, set up next touchpoint
 
+RENEWAL CHALLENGE (set applicable: true only if this is clearly an existing-business/renewal conversation — references to an existing policy, "last year", "since we last spoke", a current insurer/premium being discussed, a renewal date. Set applicable: false for a clear new-business/prospect call where no existing programme is referenced. This is not tied to call type — a presentation or closing call can be either NB or EB, judge from content, not from callTypes.):
+
+renewalChallenge (0-2):
+0 = Renewal rolled forward with no real challenge — "anything changed? No? Great, we'll renew" — last year's programme accepted without testing it against this year's business
+1 = Some review of changes but no real stress-test of whether the existing programme still fits — changes noted but not connected back to whether cover/limits/sums insured are still adequate
+2 = Genuine renewal challenge — existing cover actively tested against what's changed (turnover, headcount, new contracts, new equipment, claims, business model changes) rather than assumed correct. This is not about whether anything happened to have changed — a quiet year with a properly tested "still fits" conclusion scores as highly as catching a real gap.
+
 COMPLIANCE (always score):
 RV: ${(rvNA) ? 'This policy type ('+policyType+') does not cover buildings — set result to "na" and note "Policy type does not cover buildings — RV not applicable."' : rvPassedViaSOF ? 'Building sum insured / RV / index linking was confirmed via SOF — set result to "pass" and note "Confirmed via SOF declaration."' : 'pass = reinstatement values explicitly discussed | fail = not mentioned | na = client confirmed not applicable in writing'}
 Cyber: pass = explicitly raised, client made informed decision | fail = not mentioned | na = already has or confirmed not applicable
@@ -2153,6 +2199,8 @@ wealth: Did handler ask about the provider's own financial planning, life insura
 sales: Did handler ask about the 5 year plan or future of the business? Only na if confirmed non-owner.
 
 Be specific. Reference actual content from transcripts. Not_asked is the default if there is no evidence the question was asked.
+
+On pure closing calls (callTypes is exactly ["close"], not combined): a not_asked result should still be recorded accurately, but treat it as background rather than a flagged coaching gap — a fast, transactional closing call is often not the natural place for a Business Solutions conversation, and it should not be listed in gaps or devPlan purely for being not_asked on this call type alone. An asked_opportunity on a pure closing call, by contrast, is a genuine positive worth calling out specifically — proactively raising it even when it wasn't the natural moment is a real strength. Keep full-weight treatment (not_asked as a real gap) for sof, presentation, and combined calls, where there's clearly more room in the conversation for it.
 
 NEXT STEPS (nextSteps):
 Generate 2-4 concrete follow-up actions on THIS specific case — not handler coaching, that's devPlan below. These are things that need doing to actually close out this renewal properly. Examples: "Confirm reinstatement value with client before renewal date", "Chase outstanding SOF return", "Send written confirmation of agreed cyber cover". Each item should be a specific, checkable action a manager or handler could tick off, not a vague sentiment. If the audit shows the case is fully wrapped up with nothing outstanding, it's fine to return a short list acknowledging that (e.g. "No outstanding actions — renewal fully confirmed").
@@ -2283,7 +2331,8 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   const sections = [
     { label:'Core — all calls', keys:['contactStrategy','clientResistance','callEffectiveness','technical','commercial'] },
     { label:'Quote Presentation', keys:['presentationConfidence','marketContext','objectionHandling','engagementCheck'] },
-    { label:'Closing', keys:['closingProactivity','coverConfirmation','lastMileCrossSell','relationshipClose'] }
+    { label:'Closing', keys:['closingProactivity','coverConfirmation','lastMileCrossSell','relationshipClose'] },
+    { label:'Renewal Challenge (Existing Business only)', keys:['renewalChallenge'] }
   ];
 
   sections.forEach(sec => {
