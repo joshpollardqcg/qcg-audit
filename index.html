@@ -753,6 +753,27 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
     <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:500;margin-bottom:6px">Teams &amp; Handlers</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Manage teams and assign handlers. Changes here save immediately and are visible to everyone on the team.</div>
     <div id="teamsViewWrap"></div>
+
+    <div id="adminUsersSection" style="display:none;margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Admin — User Accounts</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Create logins for the team, or revoke someone's access. Only visible to admins.</div>
+
+      <div style="background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Add someone</div>
+        <input type="text" id="adminNewName" placeholder="Full name">
+        <input type="email" id="adminNewEmail" placeholder="Email address">
+        <select id="adminLinkExisting"><option value="">Create as a new handler...</option></select>
+        <select id="adminNewTeam"><option value="">No team yet</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer;text-transform:none;font-weight:400">
+          <input type="checkbox" id="adminNewIsAdmin" style="width:14px;height:14px;accent-color:var(--qc)"> Make this person an admin too
+        </label>
+        <button onclick="createAdminUser()" id="adminCreateBtn" class="add-btn" style="margin-top:4px">Send invite</button>
+        <div id="adminCreateStatus" style="display:none;font-size:11px;padding:8px 10px;border-radius:6px;white-space:pre-line"></div>
+      </div>
+
+      <div id="adminUsersList"><div class="empty-dash">Loading accounts...</div></div>
+    </div>
+
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Danger Zone</div>
       <button id="hardResetBtn" data-confirm="0" onclick="hardReset()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:12px;font-weight:500;padding:7px 14px;border-radius:7px;cursor:pointer;transition:all .15s">Reset all data</button>
@@ -2809,6 +2830,17 @@ function renderTeamsView() {
   if (!wrap) return;
   wrap.innerHTML = '';
 
+  const adminSection = document.getElementById('adminUsersSection');
+  if (adminSection) {
+    if (currentHandlerRow?.is_admin) {
+      adminSection.style.display = 'block';
+      populateAdminUserForm();
+      loadAdminUsers();
+    } else {
+      adminSection.style.display = 'none';
+    }
+  }
+
   sessionTeams.forEach((team, ti) => {
     const block = document.createElement('div');
     block.style.cssText = 'background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 24px;box-shadow:var(--shadow);margin-bottom:14px';
@@ -2934,6 +2966,122 @@ async function addTeam_fn() {
   await loadHandlersCache();
   renderTeamsView();
   renderHandlerSelect();
+}
+
+async function getAccessToken() {
+  const { data: { session } } = await sb.auth.getSession();
+  return session?.access_token || null;
+}
+
+async function populateAdminUserForm() {
+  const teamSel = document.getElementById('adminNewTeam');
+  teamSel.innerHTML = '<option value="">No team yet</option>';
+  sessionTeams.forEach(t => {
+    const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; teamSel.appendChild(o);
+  });
+
+  // Handlers that exist but have no login linked yet — offer to attach the
+  // new invite to one of these instead of creating a second identity for
+  // the same person.
+  const linkSel = document.getElementById('adminLinkExisting');
+  linkSel.innerHTML = '<option value="">Create as a new handler...</option>';
+  const { data: unlinked } = await sb.from('handlers').select('id, name').is('auth_user_id', null);
+  (unlinked || []).forEach(h => {
+    const o = document.createElement('option'); o.value = h.id; o.textContent = 'Link to existing: ' + h.name; linkSel.appendChild(o);
+  });
+}
+
+async function loadAdminUsers() {
+  const container = document.getElementById('adminUsersList');
+  const token = await getAccessToken();
+  try {
+    const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/admin/list-users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: token })
+    });
+    const data = await res.json();
+    if (!data.configured) { container.innerHTML = `<div class="empty-dash">⚠ ${data.message || 'Admin credentials not set up on the Worker.'}</div>`; return; }
+    if (data.error) { container.innerHTML = `<div class="empty-dash">⚠ ${data.error}</div>`; return; }
+
+    if (!data.users.length) { container.innerHTML = '<div class="empty-dash">No accounts found.</div>'; return; }
+
+    container.innerHTML = data.users.map(u => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div>
+          <span style="font-weight:500">${u.handlerName || '(not linked to a handler)'}</span>
+          ${u.isAdmin ? '<span style="font-size:9px;font-weight:700;color:var(--qc-dark);background:var(--qc-light);border:1px solid var(--qc-mid);border-radius:3px;padding:1px 5px;margin-left:6px;text-transform:uppercase">admin</span>' : ''}
+          <div style="color:var(--muted);font-size:11px">${u.email}</div>
+        </div>
+        ${u.handlerId ? `<button onclick="revokeAdminUser('${u.handlerId}','${(u.handlerName||u.email).replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--danger-border);color:var(--danger);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap">Revoke access</button>` : '<span style="color:var(--muted2);font-size:11px">unlinked</span>'}
+      </div>`).join('');
+  } catch (e) {
+    container.innerHTML = `<div class="empty-dash">✗ Could not load accounts: ${e.message}</div>`;
+  }
+}
+
+async function createAdminUser() {
+  const name = document.getElementById('adminNewName').value.trim();
+  const email = document.getElementById('adminNewEmail').value.trim();
+  const teamId = document.getElementById('adminNewTeam').value;
+  const linkToHandlerId = document.getElementById('adminLinkExisting').value;
+  const isAdmin = document.getElementById('adminNewIsAdmin').checked;
+  const statusEl = document.getElementById('adminCreateStatus');
+  const btn = document.getElementById('adminCreateBtn');
+
+  const showStatus = (msg, tone) => {
+    const tones = { info:{bg:'var(--bg)',color:'var(--muted)',border:'var(--border)'}, ok:{bg:'var(--ok-bg)',color:'var(--ok)',border:'var(--ok-border)'}, danger:{bg:'var(--danger-bg)',color:'var(--danger)',border:'var(--danger-border)'} };
+    const t = tones[tone] || tones.info;
+    statusEl.style.display = 'block'; statusEl.style.background = t.bg; statusEl.style.color = t.color; statusEl.style.border = '1px solid ' + t.border;
+    statusEl.textContent = msg;
+  };
+
+  if (!name || !email) { showStatus('Name and email are both required.', 'danger'); return; }
+
+  btn.disabled = true;
+  showStatus('Sending invite...', 'info');
+  const token = await getAccessToken();
+
+  try {
+    const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/admin/create-user', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: token, name, email, teamId: teamId || null, isAdmin, linkToHandlerId: linkToHandlerId || null })
+    });
+    const data = await res.json();
+    if (!data.configured) { showStatus('⚠ ' + (data.message || 'Not configured.'), 'danger'); return; }
+    if (data.error) { showStatus('⚠ ' + data.error, 'danger'); return; }
+
+    showStatus(`✓ Invite sent to ${email}`, 'ok');
+    document.getElementById('adminNewName').value = '';
+    document.getElementById('adminNewEmail').value = '';
+    document.getElementById('adminNewIsAdmin').checked = false;
+    await loadHandlersCache();
+    await populateAdminUserForm();
+    await loadAdminUsers();
+    renderTeamsView();
+    renderHandlerSelect();
+  } catch (e) {
+    showStatus('✗ ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function revokeAdminUser(handlerId, name) {
+  if (!confirm(`Revoke ${name}'s access? They'll be locked out immediately. Their handler record and past audits stay, they just won't be able to sign in until re-linked.`)) return;
+  const token = await getAccessToken();
+  try {
+    const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/admin/revoke-user', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: token, handlerId })
+    });
+    const data = await res.json();
+    if (!data.configured) { alert(data.message || 'Not configured.'); return; }
+    if (data.error) { alert('Could not revoke access: ' + data.error); return; }
+    await populateAdminUserForm();
+    await loadAdminUsers();
+  } catch (e) {
+    alert('Could not revoke access: ' + e.message);
+  }
 }
 
 const STORAGE_KEY = 'qcg-audit-history';
