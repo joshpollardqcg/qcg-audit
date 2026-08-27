@@ -306,6 +306,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
   <div class="tab active" id="tabQueue" onclick="switchView('queue')">📋 Audit Queue <span class="tab-count" id="queueCountTab">0</span></div>
   <div class="tab" id="tabAudit" onclick="switchView('audit')" style="display:none">🎙 Audit Case</div>
   <div class="tab" id="tabDashboard" onclick="switchView('dashboard')">📊 Trends</div>
+  <div class="tab" id="tabNeedsreview" onclick="switchView('needsreview')">⚠️ Needs Review <span class="tab-count" id="needsReviewCountTab">0</span></div>
   <div class="tab" id="tabReports" onclick="switchView('reports')">📑 Reports</div>
   <div class="tab" id="tabHandlers" onclick="switchView('handlers')">👥 Teams &amp; Handlers</div>
 </div>
@@ -761,7 +762,15 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
   </div>
 </div>
 
-<!-- PRINT AREA -->
+<!-- ══ NEEDS REVIEW VIEW ══ -->
+<div class="view" id="viewNeedsreview">
+  <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
+    <div style="font-family:'Jost',sans-serif;font-size:20px;font-weight:500;margin-bottom:6px">Needs Review</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Every case with a compliance item flagged Needs Review — genuine contact attempts made, but the client never engaged enough to raise it. Across all months. Click a case to open it.</div>
+    <div id="needsReviewContent"><div class="empty-dash">Loading...</div></div>
+  </div>
+</div>
+
 <!-- ══ REPORTS VIEW ══ -->
 <div class="view" id="viewReports">
   <div style="max-width:1100px;margin:0 auto;padding:28px 32px">
@@ -1140,6 +1149,7 @@ async function initAppData() {
   renderMonthSelect();
   renderQueue();
   updateExportReminder();
+  renderNeedsReview(); // populates the tab's count badge even before anyone clicks into it
 }
 
 function getCurrentMonthKey() {
@@ -1200,6 +1210,7 @@ function switchView(v) {
   document.getElementById(tabId).classList.add('active');
   if (v === 'queue') renderQueue();
   if (v === 'dashboard') { populateTeamFilter(); renderDashboard(); initTrendsSuggestions(); }
+  if (v === 'needsreview') renderNeedsReview();
   if (v === 'handlers') renderTeamsView();
   if (v === 'reports') { populateHandlerSelect(); populateTeamReportSelect(); switchReportTab('handler'); }
 }
@@ -4337,6 +4348,39 @@ async function exportTeamReport() {
   const headers = ['Handler','Team','Date','Client Ref','Score %','Compliance Grade','RV','Cyber','D&O'];
   const rows = data.map(r => [r.handler||'',handlerTeam(r.handler||''),r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'',r.ref||'',Math.round((r.scorePct||0)*100)+'%',r.compGrade||'',r.compliance?.RV?.result||'',r.compliance?.Cyber?.result||'',r.compliance?.DO?.result||'']);
   downloadCSV([headers,...rows], `Team_Report_${new Date().toISOString().split('T')[0]}.csv`);
+}
+
+async function renderNeedsReview() {
+  const container = document.getElementById('needsReviewContent');
+  const badge = document.getElementById('needsReviewCountTab');
+  const history = await loadHistory();
+  const flagged = history
+    .filter(r => ['RV','Cyber','DO'].some(k => r.compliance?.[k]?.result === 'needs_review'))
+    .sort((a,b) => new Date(b.auditedAt) - new Date(a.auditedAt));
+
+  if (badge) badge.textContent = flagged.length;
+  if (!container) return; // badge-only update, e.g. called during login before this tab's ever been opened
+
+  if (!flagged.length) {
+    container.innerHTML = '<div class="empty-dash">Nothing currently flagged — every compliance item has either been confirmed or genuinely wasn\'t applicable.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="rpt-card">
+      <div class="comp-gap-row header"><span>Handler</span><span>Date / Ref</span><span>What's flagged</span></div>
+      ${flagged.map(r => {
+        const items = [];
+        if (r.compliance?.RV?.result==='needs_review') items.push('RV — '+(r.compliance.RV.note||'Client did not engage'));
+        if (r.compliance?.Cyber?.result==='needs_review') items.push('Cyber — '+(r.compliance.Cyber.note||'Client did not engage'));
+        if (r.compliance?.DO?.result==='needs_review') items.push('D&O — '+(r.compliance.DO.note||'Client did not engage'));
+        return `<div class="comp-gap-row" onclick="jumpToCase('${r.caseId||''}','${r.monthKey||''}')" style="cursor:pointer" onmouseover="this.style.background='var(--qc-light)'" onmouseout="this.style.background=''" title="Click to open this case">
+          <span style="font-weight:500">${r.handler||'—'}</span>
+          <span style="color:var(--muted);font-size:11px">${r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'—'}<br>${r.ref||''} ${r.name?'— '+r.name.slice(0,25):''}</span>
+          <span style="font-size:11.5px">${items.map(m=>`<div style="margin-bottom:2px"><span class="flag-pill needs_review">NEEDS REVIEW</span> ${m}</div>`).join('')}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 async function renderComplianceReport() {
