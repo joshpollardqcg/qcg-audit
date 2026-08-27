@@ -380,6 +380,15 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
             <select id="handler"><option value="">Select handler...</option></select>
           </div>
           <div class="f" style="grid-column:1/-1">
+            <label>Status</label>
+            <select id="reviewStatus" onchange="setReviewStatus(currentCaseIdx, this.value)">
+              <option value="not_started">Not Started</option>
+              <option value="in_progress">In Progress</option>
+              <option value="complete">Complete</option>
+              <option value="signed_off">Reviewed &amp; Signed Off</option>
+            </select>
+          </div>
+          <div class="f" style="grid-column:1/-1">
             <label>Policy Types <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">select all that apply</span></label>
             <div id="policyTypeWrap" style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
               <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Combined Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Combined Liability</span></label>
@@ -994,6 +1003,7 @@ function dbCaseToLocal(c, audit) {
     ref: c.ref || '', name: c.name || '', handler: handlerName,
     renewal: c.renewal_date || '', policyType: c.policy_type || '',
     phones: c.phones || [], audited: c.audited, inProgress: c.in_progress,
+    reviewStatus: c.review_status || 'not_started', // manual human status — separate from audited/inProgress above
     score: audit ? (audit.score + '/' + audit.max_score) : undefined,
     scorePct: audit ? audit.score_pct : undefined,
     compGrade: audit ? audit.comp_grade : undefined,
@@ -1005,6 +1015,22 @@ function dbCaseToLocal(c, audit) {
     auditedAt: audit ? audit.audited_at : null,
     sofData: audit ? audit.sof_data : null
   };
+}
+
+const REVIEW_STATUSES = {
+  not_started: { label: 'Not Started', color: 'var(--muted2)', bg: 'var(--bg)', border: 'var(--border2)' },
+  in_progress: { label: 'In Progress', color: 'var(--warn)', bg: 'var(--warn-bg)', border: 'var(--warn-border)' },
+  complete:    { label: 'Complete',    color: 'var(--ok)',   bg: 'var(--ok-bg)',   border: 'var(--ok-border)' },
+  signed_off:  { label: 'Reviewed & Signed Off', color: 'var(--qc-dark)', bg: 'var(--qc-light)', border: 'var(--qc-mid)' }
+};
+
+async function setReviewStatus(caseIdx, newStatus) {
+  const c = cases[caseIdx];
+  if (!c || !c.id) return;
+  const { error } = await sb.from('cases').update({ review_status: newStatus }).eq('id', c.id);
+  if (error) { alert('Could not update status: ' + error.message); return; }
+  c.reviewStatus = newStatus;
+  renderQueue();
 }
 
 async function loadCasesForMonth(monthKey) {
@@ -1304,12 +1330,15 @@ function renderQueue() {
     const phoneChips = anonymiseMode ? '' : c.phones.filter(Boolean).map(p =>
       `<span class="phone-chip" onclick="copyPhone(event,'${p}')" title="Click to copy">${p}</span>`
     ).join('');
+    const rs = REVIEW_STATUSES[c.reviewStatus] || REVIEW_STATUSES.not_started;
+    const statusBadge = `<span style="font-size:10px;font-weight:600;color:${rs.color};background:${rs.bg};border:1px solid ${rs.border};border-radius:10px;padding:2px 8px;white-space:nowrap">${rs.label}</span>`;
 
     card.innerHTML = `
       <div class="case-status-dot ${c.audited ? 'audited' : c.inProgress ? 'in-progress' : ''}"></div>
       <div class="case-info">
         <div class="case-name">${displayName}</div>
         <div class="case-meta">
+          ${statusBadge}
           ${displayRef ? `<span>${displayRef}</span>` : ''}
           ${c.handler ? `<span>${c.handler}</span>` : ''}
           ${c.renewal ? `<span>Renewal: ${c.renewal}</span>` : ''}
@@ -1346,6 +1375,7 @@ function openCase(idx) {
   document.getElementById('clientRef').value = c.ref || '';
   document.getElementById('clientName').value = c.name || '';
   document.getElementById('renewalDate').value = normaliseDate(c.renewal || '');
+  document.getElementById('reviewStatus').value = c.reviewStatus || 'not_started';
   document.getElementById('policyType')?.remove();
   const savedTypes = (c.policyType || '').split(', ').filter(Boolean);
   document.querySelectorAll('.policy-type-cb').forEach(cb => {
@@ -1441,6 +1471,7 @@ async function addManualCase() {
     document.getElementById('clientRef').value = '';
     document.getElementById('clientName').value = '';
     document.getElementById('renewalDate').value = '';
+    document.getElementById('reviewStatus').value = 'not_started';
     document.querySelectorAll('.policy-type-cb').forEach(cb => cb.checked = false);
     updateRVFromPolicyType();
     renderHandlerSelect();
