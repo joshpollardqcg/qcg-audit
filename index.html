@@ -332,6 +332,11 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           </select>
           <button onclick="addNewMonth()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">+ New month</button>
           <input type="text" id="queueSearch" placeholder="🔍 Search by name, ref or handler..." oninput="renderQueue()" style="font-size:12px;padding:6px 10px;border-radius:7px;min-width:220px">
+          <select id="queueSort" onchange="renderQueue()" style="font-size:12px;padding:6px 28px 6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;cursor:pointer">
+            <option value="created_desc">Newest first</option>
+            <option value="updated_desc">Most recently edited</option>
+            <option value="name_asc">Client name A–Z</option>
+          </select>
         </div>
       </div>
       <div class="queue-actions">
@@ -1051,6 +1056,8 @@ function dbCaseToLocal(c, audit) {
     renewal: c.renewal_date || '', policyType: c.policy_type || '',
     phones: c.phones || [], audited: c.audited, inProgress: c.in_progress,
     reviewStatus: c.review_status || 'not_started', // manual human status — separate from audited/inProgress above
+    createdAt: c.created_at || null,
+    updatedAt: c.updated_at || null,
     score: audit ? (audit.score + '/' + audit.max_score) : undefined,
     scorePct: audit ? audit.score_pct : undefined,
     compGrade: audit ? audit.comp_grade : undefined,
@@ -1372,16 +1379,33 @@ function renderQueue() {
   document.getElementById('pTotal').textContent = cases.length;
   document.getElementById('progressFill').style.width = Math.round((done/cases.length)*100) + '%';
 
+  // Sort first, preserving each case's real array index (openCase relies on
+  // it), then filter by search on top of the sorted order.
+  const sortSelect = document.getElementById('queueSort');
+  const sortMode = sortSelect ? sortSelect.value : 'created_desc';
+  let indexed = cases.map((c, i) => ({ c, i }));
+  indexed.sort((a, b) => {
+    if (sortMode === 'updated_desc') {
+      // Falls back to createdAt for any case saved before this feature
+      // existed and never had an edit since — those have no updatedAt yet.
+      return new Date(b.c.updatedAt || b.c.createdAt || 0) - new Date(a.c.updatedAt || a.c.createdAt || 0);
+    }
+    if (sortMode === 'name_asc') {
+      return (a.c.name || '').localeCompare(b.c.name || '');
+    }
+    return new Date(b.c.createdAt || 0) - new Date(a.c.createdAt || 0); // created_desc, the default
+  });
+
   // Search filters which cards are shown — progress stats above stay based
   // on the full queue regardless of what's currently searched for.
   const searchInput = document.getElementById('queueSearch');
   const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
   const visibleCases = searchTerm
-    ? cases.map((c, i) => ({ c, i })).filter(({ c }) =>
+    ? indexed.filter(({ c }) =>
         (c.name || '').toLowerCase().includes(searchTerm) ||
         (c.ref || '').toLowerCase().includes(searchTerm) ||
         (c.handler || '').toLowerCase().includes(searchTerm))
-    : cases.map((c, i) => ({ c, i }));
+    : indexed;
 
   if (!visibleCases.length) {
     grid.innerHTML = `<div class="empty-queue"><h3>No matches</h3><p>No cases match "${searchTerm}" — try a different name, ref or handler.</p></div>`;
@@ -1392,9 +1416,9 @@ function renderQueue() {
   visibleCases.forEach(({ c, i }) => {
     const card = document.createElement('div');
     card.className = 'case-card' + (c.audited ? ' audited' : c.inProgress ? ' in-progress' : '');
-    const gradeColor = c.compGrade === 'PASS' ? 'var(--ok)' : c.compGrade === 'PARTIAL' ? 'var(--warn)' : 'var(--danger)';
-    const gradeBg = c.compGrade === 'PASS' ? 'var(--ok-bg)' : c.compGrade === 'PARTIAL' ? 'var(--warn-bg)' : 'var(--danger-bg)';
-    const gradeBorder = c.compGrade === 'PASS' ? 'var(--ok-border)' : c.compGrade === 'PARTIAL' ? 'var(--warn-border)' : 'var(--danger-border)';
+    const gradeColor = c.compGrade === 'PASS' ? 'var(--ok)' : c.compGrade === 'PARTIAL' ? 'var(--warn)' : c.compGrade === 'NEEDS REVIEW' ? 'var(--warn)' : 'var(--danger)';
+    const gradeBg = c.compGrade === 'PASS' ? 'var(--ok-bg)' : c.compGrade === 'PARTIAL' ? 'var(--warn-bg)' : c.compGrade === 'NEEDS REVIEW' ? 'var(--warn-bg)' : 'var(--danger-bg)';
+    const gradeBorder = c.compGrade === 'PASS' ? 'var(--ok-border)' : c.compGrade === 'PARTIAL' ? 'var(--warn-border)' : c.compGrade === 'NEEDS REVIEW' ? 'var(--warn-border)' : 'var(--danger-border)';
     const scoreDisplay = c.audited
       ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
            <span class="case-score" style="color:${scoreColor(c.scorePct)}">${c.score}</span>
@@ -2223,15 +2247,27 @@ document.addEventListener('paste', e => {
 
 // Single source of truth for compliance grading — used everywhere a grade
 // gets computed, rather than four separate copies of the same logic that
-// could drift out of sync. needs_review is excluded from the ratio exactly
-// like na — the premise of needs_review is that it genuinely can't be
-// judged fairly either way, so it shouldn't count as a fail or a pass.
+// could drift out of sync. needs_review is excluded from the pass/fail
+// ratio exactly like na — it can't fairly count as either.
+//
+// One real distinction worth making explicit: if EVERY item ends up
+// excluded, that could mean two different things. If they're all genuinely
+// na (confirmed not applicable), PASS is still the right read — nothing
+// was missed. But if any of them are needs_review, nothing was actually
+// confirmed at all, the client simply couldn't be reached — that's not a
+// clean pass, it's its own state, so it gets its own grade rather than
+// silently reading as green.
 function computeCompGrade(compliance) {
-  const results = ['RV','Cyber','DO']
-    .map(k => compliance?.[k]?.result)
-    .filter(r => r && r !== 'na' && r !== 'needs_review');
+  const raw = ['RV','Cyber','DO'].map(k => compliance?.[k]?.result);
+  const results = raw.filter(r => r && r !== 'na' && r !== 'needs_review');
   const fails = results.filter(r => r === 'fail').length;
-  const grade = results.length === 0 ? 'PASS' : fails === 0 ? 'PASS' : fails === results.length ? 'FAIL' : 'PARTIAL';
+
+  if (results.length === 0) {
+    const anyNeedsReview = raw.includes('needs_review');
+    return { compGrade: anyNeedsReview ? 'NEEDS REVIEW' : 'PASS', compFails: 0 };
+  }
+
+  const grade = fails === 0 ? 'PASS' : fails === results.length ? 'FAIL' : 'PARTIAL';
   return { compGrade: grade, compFails: fails };
 }
 
@@ -2509,9 +2545,9 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   document.getElementById('rDenom').textContent = '/ ' + maxT;
 
   const { compGrade } = computeCompGrade(r.compliance);
-  const gradeCol = compGrade === 'PASS' ? 'var(--ok)' : compGrade === 'PARTIAL' ? 'var(--warn)' : 'var(--danger)';
-  const gradeBg = compGrade === 'PASS' ? 'var(--ok-bg)' : compGrade === 'PARTIAL' ? 'var(--warn-bg)' : 'var(--danger-bg)';
-  const gradeBorder = compGrade === 'PASS' ? 'var(--ok-border)' : compGrade === 'PARTIAL' ? 'var(--warn-border)' : 'var(--danger-border)';
+  const gradeCol = compGrade === 'PASS' ? 'var(--ok)' : compGrade === 'PARTIAL' ? 'var(--warn)' : compGrade === 'NEEDS REVIEW' ? 'var(--warn)' : 'var(--danger)';
+  const gradeBg = compGrade === 'PASS' ? 'var(--ok-bg)' : compGrade === 'PARTIAL' ? 'var(--warn-bg)' : compGrade === 'NEEDS REVIEW' ? 'var(--warn-bg)' : 'var(--danger-bg)';
+  const gradeBorder = compGrade === 'PASS' ? 'var(--ok-border)' : compGrade === 'PARTIAL' ? 'var(--warn-border)' : compGrade === 'NEEDS REVIEW' ? 'var(--warn-border)' : 'var(--danger-border)';
 
   const penaltyBlock = document.getElementById('penaltyBlock');
   penaltyBlock.style.display = 'block';
@@ -2520,6 +2556,7 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   gradeCircle.style.borderColor = gradeCol;
   gradeCircle.style.background = gradeBg;
   gradeText.style.color = gradeCol;
+  gradeText.style.fontSize = compGrade === 'NEEDS REVIEW' ? '7px' : '10px';
   gradeText.textContent = compGrade;
   document.getElementById('adjustedBlock').style.display = 'none';
 
@@ -3786,9 +3823,9 @@ function exportPDF() {
   const total = applicable.reduce((s,v) => s+(v.score||0), 0);
   const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
   const { compGrade, compFails } = computeCompGrade(r.compliance);
-  const gradeCol = compGrade === 'PASS' ? '#1a7a4a' : compGrade === 'PARTIAL' ? '#8a5a00' : '#9b1f1f';
-  const gradeBg = compGrade === 'PASS' ? '#edf7f2' : compGrade === 'PARTIAL' ? '#fdf6e3' : '#fdf0f0';
-  const gradeBorder = compGrade === 'PASS' ? '#a3d9bc' : compGrade === 'PARTIAL' ? '#f5d07a' : '#f5a9a9';
+  const gradeCol = compGrade === 'PASS' ? '#1a7a4a' : compGrade === 'PARTIAL' ? '#8a5a00' : compGrade === 'NEEDS REVIEW' ? '#8a5a00' : '#9b1f1f';
+  const gradeBg = compGrade === 'PASS' ? '#edf7f2' : compGrade === 'PARTIAL' ? '#fdf6e3' : compGrade === 'NEEDS REVIEW' ? '#fdf6e3' : '#fdf0f0';
+  const gradeBorder = compGrade === 'PASS' ? '#a3d9bc' : compGrade === 'PARTIAL' ? '#f5d07a' : compGrade === 'NEEDS REVIEW' ? '#f5d07a' : '#f5a9a9';
 
   const compLabels = { RV:'Reinstatement Values', Cyber:'Cyber Insurance', DO:'Directors & Officers' };
   const bsLabels = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Management', sales:'Sales' };
@@ -3876,7 +3913,7 @@ function exportPDF() {
     <div style="font-size:9px;color:#AC4B82;font-weight:500">/ ${maxT}</div>
   </div>
   <div style="width:64px;height:64px;border-radius:50%;border:3px solid ${gradeCol};background:${gradeBg};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
-    <div style="font-size:${compGrade==='PARTIAL'?'9':'11'}px;font-weight:700;color:${gradeCol};line-height:1;text-align:center">${compGrade}</div>
+    <div style="font-size:${compGrade==='NEEDS REVIEW'?'7':compGrade==='PARTIAL'?'9':'11'}px;font-weight:700;color:${gradeCol};line-height:1;text-align:center">${compGrade}</div>
   </div>
   <div>
     <div style="font-size:13px;color:#202331">Call quality: <strong>${total}/${maxT}</strong> &nbsp;|&nbsp; Compliance: <strong style="color:${gradeCol}">${compGrade}</strong></div>
@@ -4107,8 +4144,9 @@ async function renderHandlerReport() {
 
   const sorted = [...data].sort((a,b) => new Date(a.auditedAt) - new Date(b.auditedAt));
   const avgScore = data.reduce((s,r) => s+(r.scorePct||0),0)/data.length;
-  const compPass = data.filter(r => r.compGrade === 'PASS').length;
-  const compPassRate = Math.round(compPass/data.length*100);
+  const compGradable = data.filter(r => r.compGrade !== 'NEEDS REVIEW');
+  const compPass = compGradable.filter(r => r.compGrade === 'PASS').length;
+  const compPassRate = compGradable.length ? Math.round(compPass/compGradable.length*100) : null;
 
   const last5 = sorted.slice(-5);
   const prev5 = sorted.slice(-10,-5);
@@ -4156,7 +4194,7 @@ async function renderHandlerReport() {
       <div class="rpt-card-title">${handler} — ${data.length} audit${data.length!==1?'s':''} in period</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
         <div class="rpt-stat"><div class="rpt-stat-num" style="color:${scoreColor(avgScore)}">${Math.round(avgScore*100)}%</div><div class="rpt-stat-label">Avg score</div></div>
-        <div class="rpt-stat"><div class="rpt-stat-num" style="color:${compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate}%</div><div class="rpt-stat-label">Compliance pass</div></div>
+        <div class="rpt-stat"><div class="rpt-stat-num" style="color:${compPassRate===null?'var(--muted)':compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate===null?'N/A':compPassRate+'%'}</div><div class="rpt-stat-label">Compliance pass</div></div>
         <div class="rpt-stat"><div class="rpt-stat-num" style="color:${trendCol};font-size:16px;margin-top:6px">${trendStr}</div><div class="rpt-stat-label">Last 5 vs prev 5</div></div>
         <div class="rpt-stat"><div class="rpt-stat-num" style="color:var(--muted)">${sofRate !== null ? sofRate+'%' : 'N/A'}</div><div class="rpt-stat-label">SOF completion</div></div>
       </div>
@@ -4201,7 +4239,7 @@ async function renderHandlerReport() {
         return `<div class="comp-gap-row">
           <span style="color:var(--muted)">${r.auditedAt ? new Date(r.auditedAt).toLocaleDateString('en-GB') : '—'}<br><span style="font-size:10px">${r.ref||''}</span></span>
           <span style="font-weight:600;color:${scoreColor(r.scorePct)}">${Math.round((r.scorePct||0)*100)}%</span>
-          <span>${r.compGrade==='PASS'?'<span class="flag-pill pass">PASS</span>':r.compGrade==='PARTIAL'?'<span class="flag-pill" style="background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)">PARTIAL</span>':'<span class="flag-pill fail">FAIL</span>'} ${flags ? '<span style="font-size:11px;color:var(--muted)">'+flags+'</span>' : ''}</span>
+          <span>${r.compGrade==='PASS'?'<span class="flag-pill pass">PASS</span>':r.compGrade==='PARTIAL'?'<span class="flag-pill" style="background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)">PARTIAL</span>':r.compGrade==='NEEDS REVIEW'?'<span class="flag-pill needs_review">NEEDS REVIEW</span>':'<span class="flag-pill fail">FAIL</span>'} ${flags ? '<span style="font-size:11px;color:var(--muted)">'+flags+'</span>' : ''}</span>
         </div>`;
       }).join('')}
     </div>`;
@@ -4252,7 +4290,8 @@ async function renderTeamReport() {
     .sort((a,b) => b.avg - a.avg);
 
   const teamAvg = data.reduce((s,r)=>s+(r.scorePct||0),0)/data.length;
-  const compPassRate = Math.round(data.filter(r=>r.compGrade==='PASS').length/data.length*100);
+  const teamCompGradable = data.filter(r => r.compGrade !== 'NEEDS REVIEW');
+  const compPassRate = teamCompGradable.length ? Math.round(teamCompGradable.filter(r=>r.compGrade==='PASS').length/teamCompGradable.length*100) : null;
 
   const catTotals = {}; const catCounts = {};
   data.forEach(r => Object.entries(r.scores||{}).forEach(([k,v]) => {
@@ -4265,7 +4304,7 @@ async function renderTeamReport() {
   container.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
       <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num" style="color:${scoreColor(teamAvg)}">${Math.round(teamAvg*100)}%</div><div class="rpt-stat-label">Team avg score</div></div>
-      <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num" style="color:${compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate}%</div><div class="rpt-stat-label">Compliance pass rate</div></div>
+      <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num" style="color:${compPassRate===null?'var(--muted)':compPassRate>=80?'var(--ok)':compPassRate>=50?'var(--warn)':'var(--danger)'}">${compPassRate===null?'N/A':compPassRate+'%'}</div><div class="rpt-stat-label">Compliance pass rate</div></div>
       <div class="rpt-card" style="text-align:center"><div class="rpt-stat-num">${data.length}</div><div class="rpt-stat-label">Total audits</div></div>
     </div>
 
@@ -4314,7 +4353,8 @@ async function renderComplianceReport() {
     return { k, label, rate:rel.length?Math.round(pass.length/rel.length*100):null };
   });
 
-  const overallPass = Math.round(data.filter(r=>r.compGrade==='PASS').length/data.length*100);
+  const overallCompGradable = data.filter(r => r.compGrade !== 'NEEDS REVIEW');
+  const overallPass = overallCompGradable.length ? Math.round(overallCompGradable.filter(r=>r.compGrade==='PASS').length/overallCompGradable.length*100) : null;
 
   const handlerFails = {};
   data.forEach(r => {
@@ -4329,8 +4369,8 @@ async function renderComplianceReport() {
 
   container.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr repeat(4,1fr);gap:12px;margin-bottom:16px">
-      <div class="rpt-card" style="text-align:center;border:2px solid ${overallPass>=80?'var(--ok-border)':overallPass>=50?'var(--warn-border)':'var(--danger-border)'}">
-        <div class="rpt-stat-num" style="font-size:36px;color:${overallPass>=80?'var(--ok)':overallPass>=50?'var(--warn)':'var(--danger)'}">${overallPass}%</div>
+      <div class="rpt-card" style="text-align:center;border:2px solid ${overallPass===null?'var(--border2)':overallPass>=80?'var(--ok-border)':overallPass>=50?'var(--warn-border)':'var(--danger-border)'}">
+        <div class="rpt-stat-num" style="font-size:36px;color:${overallPass===null?'var(--muted)':overallPass>=80?'var(--ok)':overallPass>=50?'var(--warn)':'var(--danger)'}">${overallPass===null?'N/A':overallPass+'%'}</div>
         <div class="rpt-stat-label">Overall compliance pass rate</div>
       </div>
       ${rates.map(r => `<div class="rpt-card" style="text-align:center">
