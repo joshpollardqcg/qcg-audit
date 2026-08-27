@@ -475,6 +475,20 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 
       <div class="divider"></div>
 
+      <!-- MANUAL AUDIO UPLOAD -->
+      <div>
+        <div class="sh">Upload Call Recording <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">for calls 8x8 has already archived</span></div>
+        <div id="audioDropZone" class="drop-zone" tabindex="0">
+          <input type="file" id="audioUploadInput" accept="audio/*,.mp3,.wav,.m4a,.ogg" multiple onchange="handleAudioUpload(this.files)">
+          <div class="drop-icon">🎧</div>
+          <div class="drop-label">Drop audio files here, or click to browse</div>
+          <div class="drop-sub">Download the recording from 8x8 yourself, then drop it here — transcribes straight into the next empty slot</div>
+        </div>
+        <div id="audioUploadStatus" style="display:none;font-size:11px;margin-top:6px;padding:8px 10px;border-radius:6px;white-space:pre-line"></div>
+      </div>
+
+      <div class="divider"></div>
+
       <!-- CALL TRANSCRIPTS -->
       <div>
         <div class="sh">Call Transcripts <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">paste up to 6 calls — AI identifies each type</span></div>
@@ -1404,6 +1418,29 @@ function toggleAnonymise() {
   renderQueue();
 }
 
+// Used from Report views to route straight to a case, rather than making
+// someone hunt for it manually in the queue. Cases only load one month at
+// a time, so this switches month first if the case isn't in the one
+// currently loaded.
+async function jumpToCase(caseId, monthKey) {
+  if (!caseId) { alert('No case is linked to this record — it may be from an imported history file with no matching case.'); return; }
+
+  if (!cases.some(c => c.id === caseId)) {
+    if (monthKey) {
+      currentMonth = monthKey;
+      cases = await loadCasesForMonth(monthKey);
+      renderMonthSelect();
+    }
+  }
+
+  const idx = cases.findIndex(c => c.id === caseId);
+  if (idx === -1) { alert('Could not find this case — it may have been deleted since this report was generated.'); return; }
+
+  document.getElementById('tabAudit').style.display = 'flex';
+  openCase(idx);
+  switchView('audit');
+}
+
 function openCase(idx) {
   currentCaseIdx = idx;
   const c = cases[idx];
@@ -1852,6 +1889,67 @@ function setFetch8x8Status(msg, tone) {
   el.textContent = msg;
 }
 
+function setAudioUploadStatus(msg, tone) {
+  const el = document.getElementById('audioUploadStatus');
+  const tones = {
+    info:    { bg:'var(--bg)', color:'var(--muted)', border:'var(--border)' },
+    warn:    { bg:'var(--warn-bg)', color:'var(--warn)', border:'var(--warn-border)' },
+    ok:      { bg:'var(--ok-bg)', color:'var(--ok)', border:'var(--ok-border)' },
+    danger:  { bg:'var(--danger-bg)', color:'var(--danger)', border:'var(--danger-border)' }
+  }[tone] || { bg:'var(--bg)', color:'var(--muted)', border:'var(--border)' };
+  el.style.display = 'block';
+  el.style.background = tones.bg;
+  el.style.color = tones.color;
+  el.style.border = '1px solid ' + tones.border;
+  el.textContent = msg;
+}
+
+// Manual workaround for 8x8 archiving recordings after a month — the person
+// downloads the call themselves from 8x8's own interface and drops the file
+// here. Each file is sent straight to the Worker for Whisper transcription,
+// no 8x8 API involved at all, and drops into the next empty call slot.
+async function handleAudioUpload(fileList) {
+  const files = [...fileList];
+  if (!files.length) return;
+
+  const emptySlots = [1,2,3,4,5,6].filter(n => !document.getElementById('slotText'+n).value.trim());
+  if (!emptySlots.length) { setAudioUploadStatus('All 6 call slots are already full — clear one first.', 'danger'); return; }
+
+  const toProcess = files.slice(0, emptySlots.length);
+  if (files.length > emptySlots.length) {
+    setAudioUploadStatus(`Only ${emptySlots.length} empty slot${emptySlots.length!==1?'s':''} available — processing the first ${toProcess.length} file${toProcess.length!==1?'s':''}, the rest were skipped.`, 'warn');
+  }
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const file = toProcess[i];
+    const slotNum = emptySlots[i];
+    setAudioUploadStatus(`Transcribing ${i+1} of ${toProcess.length}: ${file.name}...`, 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/transcribe-audio', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (!data.configured) { setAudioUploadStatus('⚠ ' + (data.message || 'Not configured.'), 'warn'); return; }
+      if (data.error) { setAudioUploadStatus(`⚠ ${file.name} failed: ` + data.error, 'warn'); continue; }
+
+      const ta = document.getElementById('slotText' + slotNum);
+      ta.value = data.transcript || '';
+      updateSlotStatus(slotNum);
+      const slotBody = document.getElementById('slotBody' + slotNum);
+      if (slotBody && slotBody.classList.contains('collapsed')) toggleSlot(slotNum);
+    } catch (e) {
+      setAudioUploadStatus(`✗ ${file.name} failed: ` + e.message, 'danger');
+    }
+  }
+
+  setAudioUploadStatus(`✓ Transcribed ${toProcess.length} recording${toProcess.length!==1?'s':''} into the slots below`, 'ok');
+  document.getElementById('audioUploadInput').value = ''; // allow re-selecting the same file if needed
+}
+
 let found8x8Recordings = [];
 
 async function find8x8Calls() {
@@ -2048,6 +2146,15 @@ const dz = document.getElementById('dropZone');
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleImageFile(e.dataTransfer.files[0]); });
+
+const audioDz = document.getElementById('audioDropZone');
+audioDz.addEventListener('dragover', e => { e.preventDefault(); audioDz.classList.add('drag-over'); });
+audioDz.addEventListener('dragleave', () => audioDz.classList.remove('drag-over'));
+audioDz.addEventListener('drop', e => {
+  e.preventDefault();
+  audioDz.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleAudioUpload(e.dataTransfer.files);
+});
 
 dz.addEventListener('paste', e => {
   e.preventDefault();
@@ -2538,6 +2645,10 @@ function resetAuditPanel() {
   const pullBtn = document.getElementById('pullSelected8x8Btn');
   if (pullBtn) pullBtn.style.display = 'none';
   found8x8Recordings = [];
+  const audioStatus = document.getElementById('audioUploadStatus');
+  if (audioStatus) audioStatus.style.display = 'none';
+  const audioInput = document.getElementById('audioUploadInput');
+  if (audioInput) audioInput.value = '';
   initCallSlots();
   document.getElementById('emptyState').style.display = 'flex';
   document.getElementById('results').style.display = 'none';
@@ -2828,17 +2939,36 @@ async function saveToStorage() {
 async function loadHistory() {
   const { data: auditRows, error } = await sb.from('audits').select('*').order('audited_at', { ascending: true });
   if (error) { console.warn('History load failed:', error); return []; }
-  const caseIds = [...new Set(auditRows.map(a => a.case_id).filter(Boolean))];
+
+  // Multiple saves against the same case — SOF ticks, chat corrections,
+  // manual edits — each create a new row rather than updating one, so the
+  // full revision history genuinely stays in the database. Reports should
+  // only ever count the latest version per case though, not the superseded
+  // ones — this is the one place that filter lives, everything that reads
+  // history (Dashboard, all four Report views, the Trends chat) goes
+  // through this function, so fixing it here fixes it everywhere.
+  const latestByCase = {};
+  const noCaseRows = [];
+  auditRows.forEach(a => {
+    if (!a.case_id) { noCaseRows.push(a); return; } // imported records with no linked case — keep each as-is
+    if (!latestByCase[a.case_id] || new Date(a.audited_at) > new Date(latestByCase[a.case_id].audited_at)) {
+      latestByCase[a.case_id] = a;
+    }
+  });
+  const dedupedRows = [...Object.values(latestByCase), ...noCaseRows];
+
+  const caseIds = [...new Set(dedupedRows.map(a => a.case_id).filter(Boolean))];
   let casesById = {};
   if (caseIds.length) {
     const { data: caseRows } = await sb.from('cases').select('*').in('id', caseIds);
     (caseRows||[]).forEach(c => { casesById[c.id] = c; });
   }
-  return auditRows.map(a => {
+  return dedupedRows.map(a => {
     const c = casesById[a.case_id] || {};
     const handlerName = a.handler_id ? (handlersById[a.handler_id]?.name || '') : '';
     return {
-      id: a.id, ref: c.ref || '', name: c.name || '', handler: handlerName,
+      id: a.id, caseId: a.case_id || null, monthKey: c.month_key || null,
+      ref: c.ref || '', name: c.name || '', handler: handlerName,
       renewal: c.renewal_date || '', auditedAt: a.audited_at,
       score: a.score, maxScore: a.max_score, scorePct: a.score_pct,
       compGrade: a.comp_grade, compFails: a.comp_fails,
@@ -4174,7 +4304,7 @@ async function renderComplianceReport() {
           if (r.compliance?.Cyber?.result==='fail') missed.push('Cyber — '+(r.compliance.Cyber.note||'Not discussed'));
           if (r.compliance?.DO?.result==='fail') missed.push('D&O — '+(r.compliance.DO.note||'Not discussed'));
           if (r.compGrade==='PARTIAL'&&missed.length===0) missed.push('Material facts incomplete');
-          return `<div class="comp-gap-row">
+          return `<div class="comp-gap-row" onclick="jumpToCase('${r.caseId||''}','${r.monthKey||''}')" style="cursor:pointer" onmouseover="this.style.background='var(--qc-light)'" onmouseout="this.style.background=''" title="Click to open this case">
             <span style="font-weight:500">${r.handler||'—'}</span>
             <span style="color:var(--muted);font-size:11px">${r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'—'}<br>${r.ref||''} ${r.name?'— '+r.name.slice(0,25):''}</span>
             <span style="font-size:11.5px">${missed.map(m=>`<div style="margin-bottom:2px"><span class="flag-pill fail">FAIL</span> ${m}</div>`).join('')}</span>
