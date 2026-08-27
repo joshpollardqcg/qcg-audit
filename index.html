@@ -389,6 +389,9 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
             </select>
           </div>
           <div class="f" style="grid-column:1/-1">
+            <button id="deleteCaseBtn" data-confirm="0" onclick="deleteCurrentCase()" style="background:transparent;border:1px solid var(--danger-border);color:var(--danger);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;width:100%">🗑 Delete this case</button>
+          </div>
+          <div class="f" style="grid-column:1/-1">
             <label>Policy Types <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">select all that apply</span></label>
             <div id="policyTypeWrap" style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
               <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Combined Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Combined Liability</span></label>
@@ -1031,6 +1034,38 @@ async function setReviewStatus(caseIdx, newStatus) {
   if (error) { alert('Could not update status: ' + error.message); return; }
   c.reviewStatus = newStatus;
   renderQueue();
+}
+
+async function deleteCurrentCase() {
+  const btn = document.getElementById('deleteCaseBtn');
+  if (btn.dataset.confirm !== '1') {
+    btn.textContent = 'Click again to permanently delete';
+    btn.dataset.confirm = '1';
+    btn.style.background = 'var(--danger-bg)';
+    setTimeout(() => {
+      btn.textContent = '🗑 Delete this case';
+      btn.dataset.confirm = '0';
+      btn.style.background = 'transparent';
+    }, 3000);
+    return;
+  }
+
+  const c = cases[currentCaseIdx];
+  if (!c || !c.id) return;
+
+  // Verify the row was actually removed rather than trust the absence of an
+  // error — a delete blocked by RLS returns success with zero affected rows.
+  const { data, error } = await sb.from('cases').delete().eq('id', c.id).select();
+  if (error) { alert('Could not delete case: ' + error.message); return; }
+  if (!data || data.length === 0) {
+    alert('Nothing was actually deleted — this usually means a permissions issue, not that the case didn\'t exist.');
+    return;
+  }
+
+  cases.splice(currentCaseIdx, 1);
+  currentCaseIdx = null;
+  document.getElementById('tabAudit').style.display = 'none';
+  switchView('queue');
 }
 
 async function loadCasesForMonth(monthKey) {
