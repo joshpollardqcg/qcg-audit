@@ -324,10 +324,11 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
     <div class="queue-header">
       <div>
         <div class="queue-title">Audit Queue</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
           <select id="monthSelect" onchange="switchMonth(this.value)" style="font-size:12px;padding:6px 28px 6px 10px;border-radius:7px;border:1px solid var(--border2);background:var(--bg);color:var(--text);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;cursor:pointer">
           </select>
           <button onclick="addNewMonth()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">+ New month</button>
+          <input type="text" id="queueSearch" placeholder="🔍 Search by name, ref or handler..." oninput="renderQueue()" style="font-size:12px;padding:6px 10px;border-radius:7px;min-width:220px">
         </div>
       </div>
       <div class="queue-actions">
@@ -435,11 +436,12 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
       <!-- 8X8 AUTO-FETCH -->
       <div>
         <div class="sh">8x8 Call Fetch <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">find recordings, pick which to transcribe</span></div>
+        <div id="fetch8x8KnownNumbers" style="display:none;flex-wrap:wrap;gap:5px;margin-bottom:6px"></div>
         <div style="display:flex;gap:8px">
           <input type="tel" id="fetch8x8Phone" placeholder="e.g. 01372 424904" style="flex:1">
           <button onclick="find8x8Calls()" id="find8x8Btn" style="background:var(--qc);color:white;border:none;border-radius:7px;font-family:'Jost',sans-serif;font-size:12px;font-weight:600;padding:8px 14px;cursor:pointer;white-space:nowrap">Find calls</button>
         </div>
-        <div style="font-size:10px;color:var(--muted2);margin-top:5px">Searches the last 2 months. Pick which recordings to pull in — up to as many empty call slots as you have below.</div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:5px">Searches the last 3 months. Pick which recordings to pull in — up to as many empty call slots as you have below.</div>
         <div id="fetch8x8Status" style="display:none;font-size:11px;margin-top:6px;padding:8px 10px;border-radius:6px;white-space:pre-line"></div>
         <div id="fetch8x8Results" style="display:none;margin-top:8px;display:flex;flex-direction:column;gap:5px"></div>
         <button onclick="pullSelected8x8Calls()" id="pullSelected8x8Btn" style="display:none;width:100%;margin-top:8px;background:var(--qc);color:white;border:none;border-radius:7px;font-family:'Jost',sans-serif;font-size:12px;font-weight:600;padding:9px;cursor:pointer">Pull selected into slots</button>
@@ -449,7 +451,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 
       <!-- CALL TRANSCRIPTS -->
       <div>
-        <div class="sh">Call Transcripts <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">paste up to 4 calls — AI identifies each type</span></div>
+        <div class="sh">Call Transcripts <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">paste up to 6 calls — AI identifies each type</span></div>
         <div class="call-slots" id="callSlots">
           <!-- rendered by JS -->
         </div>
@@ -1238,8 +1240,24 @@ function renderQueue() {
   document.getElementById('pTotal').textContent = cases.length;
   document.getElementById('progressFill').style.width = Math.round((done/cases.length)*100) + '%';
 
+  // Search filters which cards are shown — progress stats above stay based
+  // on the full queue regardless of what's currently searched for.
+  const searchInput = document.getElementById('queueSearch');
+  const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const visibleCases = searchTerm
+    ? cases.map((c, i) => ({ c, i })).filter(({ c }) =>
+        (c.name || '').toLowerCase().includes(searchTerm) ||
+        (c.ref || '').toLowerCase().includes(searchTerm) ||
+        (c.handler || '').toLowerCase().includes(searchTerm))
+    : cases.map((c, i) => ({ c, i }));
+
+  if (!visibleCases.length) {
+    grid.innerHTML = `<div class="empty-queue"><h3>No matches</h3><p>No cases match "${searchTerm}" — try a different name, ref or handler.</p></div>`;
+    return;
+  }
+
   grid.innerHTML = '';
-  cases.forEach((c, i) => {
+  visibleCases.forEach(({ c, i }) => {
     const card = document.createElement('div');
     card.className = 'case-card' + (c.audited ? ' audited' : c.inProgress ? ' in-progress' : '');
     const gradeColor = c.compGrade === 'PASS' ? 'var(--ok)' : c.compGrade === 'PARTIAL' ? 'var(--warn)' : 'var(--danger)';
@@ -1321,8 +1339,7 @@ function openCase(idx) {
   renderHandlerSelect();
   if (c.handler) document.getElementById('handler').value = c.handler;
   renderLeftPhones(c.phones || []);
-  const fetchPhoneInput = document.getElementById('fetch8x8Phone');
-  if (fetchPhoneInput) fetchPhoneInput.value = (c.phones && c.phones[0]) || '';
+  renderFetch8x8PhoneChips(c.phones || []);
   resetAuditPanel();
   auditChatHistory = [];
   document.getElementById('auditAssistantCard').style.display = 'none';
@@ -1359,6 +1376,31 @@ function renderLeftPhones(phones) {
   });
 }
 
+// Shows both known numbers (Acturis exports carry Work + Home, in that
+// order) as quick-pick chips above the 8x8 fetch input, click either to
+// load it in and search — the free-text field still works for anything
+// else. Defaults the input to the first known number so nothing changes
+// for anyone who just clicks "Find calls" without touching the chips.
+function renderFetch8x8PhoneChips(phones) {
+  const wrap = document.getElementById('fetch8x8KnownNumbers');
+  const input = document.getElementById('fetch8x8Phone');
+  if (!wrap || !input) return;
+  const filtered = phones.filter(Boolean);
+  input.value = filtered[0] || '';
+  wrap.innerHTML = '';
+  if (filtered.length < 2) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  const labels = ['Work', 'Home']; // matches Acturis export column order — Primary Contact Work Phone, then Home Phone
+  filtered.forEach((p, i) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.textContent = (labels[i] || `Number ${i+1}`) + ': ' + p;
+    chip.style.cssText = 'background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:500;padding:4px 10px;border-radius:14px;cursor:pointer;white-space:nowrap';
+    chip.onclick = () => { input.value = p; };
+    wrap.appendChild(chip);
+  });
+}
+
 async function addManualCase() {
   const btn = document.getElementById('addCaseBtn');
   if (btn.disabled) return; // already in flight from a fast double-click
@@ -1374,12 +1416,11 @@ async function addManualCase() {
     document.getElementById('clientRef').value = '';
     document.getElementById('clientName').value = '';
     document.getElementById('renewalDate').value = '';
-    const fetchPhoneInput = document.getElementById('fetch8x8Phone');
-    if (fetchPhoneInput) fetchPhoneInput.value = '';
     document.querySelectorAll('.policy-type-cb').forEach(cb => cb.checked = false);
     updateRVFromPolicyType();
     renderHandlerSelect();
     renderLeftPhones([]);
+    renderFetch8x8PhoneChips([]);
     resetAuditPanel();
     auditChatHistory = [];
     document.getElementById('auditAssistantCard').style.display = 'none';
@@ -1612,7 +1653,7 @@ function showSheetPicker(wb, processRows) {
 function initCallSlots() {
   const container = document.getElementById('callSlots');
   container.innerHTML = '';
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 6; i++) {
     const slot = document.createElement('div');
     slot.className = 'call-slot';
     slot.id = 'slot' + i;
@@ -1739,7 +1780,7 @@ async function find8x8Calls() {
       const res = await fetch('https://qcp-audit-proxy.sahaj-choudhry.workers.dev/list-recordings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, months_back: 2, pageKey })
+        body: JSON.stringify({ phone, months_back: 3, pageKey })
       });
       const data = await res.json();
 
@@ -1774,7 +1815,7 @@ async function find8x8Calls() {
       const samplesLine = failedSamples.length
         ? `\n\nSample filenames the parser couldn't extract a number from (check if these are just internal calls, or a format the parser should also handle):\n` + failedSamples.map(s => '• ' + s).join('\n')
         : '';
-      setFetch8x8Status(`No recordings found for this number (checked ${totalScanned} recordings across the last 2 months).` + extractLine + samplesLine + filterTestLine, 'info');
+      setFetch8x8Status(`No recordings found for this number (checked ${totalScanned} recordings across the last 3 months).` + extractLine + samplesLine + filterTestLine, 'info');
       return;
     }
 
@@ -1802,7 +1843,7 @@ async function pullSelected8x8Calls() {
   if (!checked.length) { setFetch8x8Status('Tick at least one recording first.', 'danger'); return; }
 
   // Find empty call slots to fill, in order
-  const emptySlots = [1,2,3,4].filter(n => !document.getElementById('slotText'+n).value.trim());
+  const emptySlots = [1,2,3,4,5,6].filter(n => !document.getElementById('slotText'+n).value.trim());
   if (!emptySlots.length) { setFetch8x8Status('All 4 call slots are already full — clear one first.', 'danger'); return; }
 
   const toProcess = checked.slice(0, emptySlots.length);
@@ -1944,7 +1985,7 @@ function scoreColor(p) {
 }
 
 async function runAudit() {
-  const transcripts = [1,2,3,4].map(i => document.getElementById('slotText'+i).value.trim()).filter(Boolean);
+  const transcripts = [1,2,3,4,5,6].map(i => document.getElementById('slotText'+i).value.trim()).filter(Boolean);
   if (!transcripts.length && !imageBase64) {
     showError('Please paste at least one call transcript or upload the 8x8 screenshot.');
     return;
@@ -3124,7 +3165,7 @@ async function sendAuditChat() {
   const thinking = addChatMsg('auditChatMessages', 'Thinking...', 'thinking');
 
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-  const transcripts = [1,2,3,4].map(i => document.getElementById('slotText'+i).value.trim()).filter(Boolean);
+  const transcripts = [1,2,3,4,5,6].map(i => document.getElementById('slotText'+i).value.trim()).filter(Boolean);
 
   const systemPrompt = `You are an expert coaching assistant and audit agent for Quality Care Group, a specialist UK care home insurance broker. You have just completed a deep dive audit of a renewal case.
 
@@ -3147,7 +3188,7 @@ CURRENT AUDIT RESULTS:
 - Gaps: ${(lastResult.gaps||[]).join('; ')}
 - Next steps: ${(lastResult.nextSteps||[]).join('; ')}
 
-${transcripts.length ? 'TRANSCRIPT:\n' + transcripts.map((t,i) => 'Call '+(i+1)+': '+t.slice(0,1200)).join('\n\n') : 'No transcript provided.'}
+${transcripts.length ? 'TRANSCRIPT:\n' + transcripts.map((t,i) => 'Call '+(i+1)+': '+t.slice(0,100000)).join('\n\n') : 'No transcript provided.'}
 
 IMPORTANT — YOU CAN EDIT THE REPORT DIRECTLY:
 - If the user asks you to change anything in the report — scores, compliance flags, business solutions, summary, gaps, next steps — do it. Don't just explain what should change, actually output the change in the ADJUSTED_SCORES block so the user can apply it with one click.
