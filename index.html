@@ -178,6 +178,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .flag-card.pass{border-color:var(--ok-border);background:var(--ok-bg)}
 .flag-card.fail{border-color:var(--danger-border);background:var(--danger-bg)}
 .flag-card.partial{border-color:var(--warn-border);background:var(--warn-bg)}
+.flag-card.needs_review{border-color:var(--warn-border);background:var(--warn-bg)}
 .flag-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .flag-name{font-size:12px;font-weight:600;color:var(--text)}
 .flag-badge{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:4px}
@@ -185,6 +186,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .flag-badge.fail{background:#f5c6c6;color:var(--danger)}
 .flag-badge.partial{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)}
 .flag-badge.na{background:var(--bg);color:var(--muted);border:1px solid var(--border2)}
+.flag-badge.needs_review{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)}
 .flag-note{font-size:11px;color:var(--muted);line-height:1.5}
 
 /* SCORE CARD */
@@ -214,6 +216,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
 .flag-pill.fail{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border)}
 .flag-pill.pass{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-border)}
 .flag-pill.na{background:var(--bg);color:var(--muted);border:1px solid var(--border2)}
+.flag-pill.needs_review{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)}
 
 /* Note: an older @media print block for #printArea lived here — dead code,
    nothing populates that div anymore since PDF export moved to the modal
@@ -394,32 +397,11 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           <div class="f" style="grid-column:1/-1">
             <label>Policy Types <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--muted2)">select all that apply</span></label>
             <div id="policyTypeWrap" style="background:var(--bg);border:1px solid var(--border2);border-radius:7px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto">
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Combined Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Combined Liability</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Commercial Combined Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Commercial Combined Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Commercial Loss Recovery" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Commercial Loss Recovery</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Contract Works" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Contract Works</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Cyber Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Cyber Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Domiciliary Care" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Domiciliary Care</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Engineering Inspection" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Engineering Inspection</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Excess Liability Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Excess Liability Combined</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Excess Public Liability" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Excess Public Liability</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Fleet" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Fleet</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Claims Assistance" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Claims Assistance</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Excess Protection" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Excess Protection</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Insurance Misc" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Insurance Misc</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Legal Expenses" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Legal Expenses</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="General Services and Helplines" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>General Services and Helplines</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Management Liability Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Management Liability Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Minibus" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Minibus</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Nursing &amp; Care Homes Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Nursing &amp; Care Homes Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Offices &amp; Surgeries Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Offices &amp; Surgeries Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PA and Business Travel" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PA and Business Travel</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Personal Household Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Personal Household Combined</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PI" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PI</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="PI Combined" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>PI Combined</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Property Owners" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Property Owners</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Pubs &amp; Restaurants Package" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Pubs &amp; Restaurants Package</span></label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400"><input type="checkbox" value="Terrorism" class="policy-type-cb" style="width:13px;height:13px;accent-color:var(--qc);flex-shrink:0" onchange="updateRVFromPolicyType()"><span>Terrorism</span></label>
+              <!-- rendered dynamically by renderPolicyTypeCheckboxes() -->
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <input type="text" id="newPolicyTypeInput" placeholder="Add a new policy type..." style="flex:1;font-size:12px;padding:6px 10px" onkeydown="if(event.key==='Enter')addPolicyType()">
+              <button onclick="addPolicyType()" class="add-btn" style="font-size:12px;padding:6px 12px">+ Add</button>
             </div>
           </div>
         </div>
@@ -977,6 +959,54 @@ let anonymiseMode = false; // deliberately session-only, not persisted — reset
 let handlersById = {};      // Supabase handlers.id -> row
 let handlersByName = {};    // handler name -> row
 
+let policyTypesList = [];
+
+async function loadPolicyTypes() {
+  const { data, error } = await sb.from('policy_types').select('*').order('name');
+  if (error) { console.warn('Policy types load failed:', error); return; }
+  policyTypesList = (data || []).map(p => p.name);
+}
+
+function renderPolicyTypeCheckboxes(preserveChecked) {
+  const wrap = document.getElementById('policyTypeWrap');
+  if (!wrap) return;
+  const checkedBefore = preserveChecked || getSelectedPolicyTypes();
+  wrap.innerHTML = '';
+  policyTypesList.forEach(name => {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer;padding:2px 0;text-transform:none;letter-spacing:0;font-weight:400';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = name;
+    cb.className = 'policy-type-cb';
+    cb.style.cssText = 'width:13px;height:13px;accent-color:var(--qc);flex-shrink:0';
+    cb.checked = checkedBefore.includes(name);
+    cb.onchange = updateRVFromPolicyType;
+    const span = document.createElement('span');
+    span.textContent = name;
+    label.appendChild(cb);
+    label.appendChild(span);
+    wrap.appendChild(label);
+  });
+}
+
+async function addPolicyType() {
+  const input = document.getElementById('newPolicyTypeInput');
+  const name = input.value.trim();
+  if (!name) return;
+  const { error } = await sb.from('policy_types').insert({ name }).select();
+  if (error) {
+    // A duplicate name hits the unique constraint — treat that as "already
+    // exists, fine" rather than showing an alarming error for something
+    // that isn't really a problem.
+    if (!error.message.includes('duplicate')) { alert('Could not add policy type: ' + error.message); return; }
+  }
+  input.value = '';
+  await loadPolicyTypes();
+  renderPolicyTypeCheckboxes();
+  updateRVFromPolicyType();
+}
+
 async function loadHandlersCache() {
   const { data: teamRows, error: teamsError } = await sb.from('teams').select('*').order('name');
   const { data: handlerRows, error } = await sb.from('handlers').select('*').order('name');
@@ -1096,6 +1126,8 @@ async function loadCasesForMonth(monthKey) {
 async function initAppData() {
   await loadHandlersCache();
   await loadKnownMonths();
+  await loadPolicyTypes();
+  renderPolicyTypeCheckboxes();
   currentMonth = getCurrentMonthKey();
   cases = await loadCasesForMonth(currentMonth);
   renderMonthSelect();
@@ -1778,7 +1810,7 @@ function showSheetPicker(wb, processRows) {
     const ws = wb.Sheets[name];
     const rowCount = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' }).length;
     const btn = document.createElement('button');
-    btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;cursor:pointer;font-family:\'Inter\',sans-serif;font-size:13px;text-align:left;transition:all .15s;width:100%';
+    btn.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;cursor:pointer;font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:13px;text-align:left;transition:all .15s;width:100%';
     btn.innerHTML = `<span style="font-weight:500;color:var(--text)">${name}</span><span style="font-size:11px;color:var(--muted)">${Math.max(0,rowCount-1)} rows</span>`;
     btn.onmouseenter = () => { btn.style.borderColor = 'var(--qc)'; btn.style.background = 'var(--qc-light)'; };
     btn.onmouseleave = () => { btn.style.borderColor = 'var(--border2)'; btn.style.background = 'var(--bg)'; };
@@ -2189,6 +2221,20 @@ document.addEventListener('paste', e => {
   }
 });
 
+// Single source of truth for compliance grading — used everywhere a grade
+// gets computed, rather than four separate copies of the same logic that
+// could drift out of sync. needs_review is excluded from the ratio exactly
+// like na — the premise of needs_review is that it genuinely can't be
+// judged fairly either way, so it shouldn't count as a fail or a pass.
+function computeCompGrade(compliance) {
+  const results = ['RV','Cyber','DO']
+    .map(k => compliance?.[k]?.result)
+    .filter(r => r && r !== 'na' && r !== 'needs_review');
+  const fails = results.filter(r => r === 'fail').length;
+  const grade = results.length === 0 ? 'PASS' : fails === 0 ? 'PASS' : fails === results.length ? 'FAIL' : 'PARTIAL';
+  return { compGrade: grade, compFails: fails };
+}
+
 function scoreColor(p) {
   if (p >= 0.67) return '#1a7a4a';
   if (p >= 0.34) return '#8a5a00';
@@ -2250,9 +2296,9 @@ Return ONLY valid JSON with this exact structure — no preamble, no markdown:
     "renewalChallenge": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false}
   },
   "compliance": {
-    "RV": {"result": "pass|fail|na", "note": "one sentence"},
-    "Cyber": {"result": "pass|fail|na", "note": "one sentence"},
-    "DO": {"result": "pass|fail|na", "note": "one sentence"}
+    "RV": {"result": "pass|fail|na|needs_review", "note": "one sentence"},
+    "Cyber": {"result": "pass|fail|na|needs_review", "note": "one sentence"},
+    "DO": {"result": "pass|fail|na|needs_review", "note": "one sentence"}
   },
   "businessSolutions": {
     "recruitment": {"result": "asked_opportunity|asked_no_opportunity|not_asked|na", "note": "one sentence"},
@@ -2353,9 +2399,11 @@ renewalChallenge (0-2):
 2 = Genuine renewal challenge — existing cover actively tested against what's changed (turnover, headcount, new contracts, new equipment, claims, business model changes) rather than assumed correct. This is not about whether anything happened to have changed — a quiet year with a properly tested "still fits" conclusion scores as highly as catching a real gap.
 
 COMPLIANCE (always score):
-RV: ${(rvNA) ? 'This policy type ('+policyType+') does not cover buildings — set result to "na" and note "Policy type does not cover buildings — RV not applicable."' : rvPassedViaSOF ? 'Building sum insured / RV / index linking was confirmed via SOF — set result to "pass" and note "Confirmed via SOF declaration."' : 'pass = reinstatement values explicitly discussed | fail = not mentioned | na = client confirmed not applicable in writing'}
-Cyber: pass = explicitly raised, client made informed decision | fail = not mentioned | na = already has or confirmed not applicable
-DO: pass = D&O explicitly raised, client made informed decision | fail = not mentioned | na = already has or confirmed not applicable
+RV: ${(rvNA) ? 'This policy type ('+policyType+') does not cover buildings — set result to "na" and note "Policy type does not cover buildings — RV not applicable."' : rvPassedViaSOF ? 'Building sum insured / RV / index linking was confirmed via SOF — set result to "pass" and note "Confirmed via SOF declaration."' : 'pass = reinstatement values explicitly discussed | fail = not mentioned | na = client confirmed not applicable in writing | needs_review = see NEEDS REVIEW guidance below'}
+Cyber: pass = explicitly raised, client made informed decision | fail = not mentioned | na = already has or confirmed not applicable | needs_review = see NEEDS REVIEW guidance below
+DO: pass = D&O explicitly raised, client made informed decision | fail = not mentioned | na = already has or confirmed not applicable | needs_review = see NEEDS REVIEW guidance below
+
+NEEDS REVIEW (applies to RV, Cyber, and D&O — use instead of fail when the handler genuinely never had the chance to raise it): if contactStrategy shows the handler made real, structured attempts to reach the client — two or three tries across different times of day, a clear reason left in any voicemail — but no substantive conversation was ever actually achieved (client never picked up, never called back, never engaged beyond a brief unproductive exchange), then a topic not being raised isn't a fair reflection of the handler's performance. Set the relevant compliance items to needs_review rather than fail in this situation, with a note explaining why (e.g. "Three genuine contact attempts made, client never engaged — could not be raised"). Do not use needs_review as a way to soften a real fail where the handler did get a proper conversation and simply didn't raise the topic — it's specifically for when the opportunity never existed, not when it existed and was missed.
 
 BUSINESS SOLUTIONS (always assess — score whether handler PROACTIVELY ASKED, not just whether client mentioned it):
 
@@ -2428,10 +2476,9 @@ Generate 3-5 specific, actionable development points for the handler based on th
       cases[currentCaseIdx].audited = true;
       cases[currentCaseIdx].inProgress = false;
       cases[currentCaseIdx].score = total + '/' + maxT;
-      const compFails2 = ['RV','Cyber','DO'].filter(k => result.compliance[k]?.result === 'fail').length;
-      const compResults2 = ['RV','Cyber','DO'].map(k => result.compliance[k]?.result).filter(r => r !== 'na');
+      const { compGrade: compGrade2 } = computeCompGrade(result.compliance);
       cases[currentCaseIdx].scorePct = maxT > 0 ? total/maxT : 0;
-      cases[currentCaseIdx].compGrade = compFails2 === 0 ? 'PASS' : compFails2 === compResults2.length ? 'FAIL' : 'PARTIAL';
+      cases[currentCaseIdx].compGrade = compGrade2;
       cases[currentCaseIdx].result = result;
       cases[currentCaseIdx].auditedAt = new Date().toISOString();
       cases[currentCaseIdx].policyType = policyType;
@@ -2461,9 +2508,7 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   document.getElementById('rTotalNum').textContent = total;
   document.getElementById('rDenom').textContent = '/ ' + maxT;
 
-  const compResults = ['RV','Cyber','DO'].map(k => r.compliance[k]?.result).filter(r => r !== 'na');
-  const compFails = compResults.filter(r => r === 'fail').length;
-  const compGrade = compFails === 0 ? 'PASS' : compFails === compResults.length ? 'FAIL' : 'PARTIAL';
+  const { compGrade } = computeCompGrade(r.compliance);
   const gradeCol = compGrade === 'PASS' ? 'var(--ok)' : compGrade === 'PARTIAL' ? 'var(--warn)' : 'var(--danger)';
   const gradeBg = compGrade === 'PASS' ? 'var(--ok-bg)' : compGrade === 'PARTIAL' ? 'var(--warn-bg)' : 'var(--danger-bg)';
   const gradeBorder = compGrade === 'PASS' ? 'var(--ok-border)' : compGrade === 'PARTIAL' ? 'var(--warn-border)' : 'var(--danger-border)';
@@ -2494,7 +2539,7 @@ function render(r, clientName, clientRef, handler, renewalDate) {
     document.getElementById('flag'+k).className = 'flag-card ' + c.result;
     const b = document.getElementById('badge'+k);
     b.className = 'flag-badge ' + c.result;
-    b.textContent = c.result === 'na' ? 'N/A' : c.result.toUpperCase();
+    b.textContent = c.result === 'na' ? 'N/A' : c.result === 'needs_review' ? 'NEEDS REVIEW' : c.result.toUpperCase();
     document.getElementById('note'+k).textContent = c.note;
   });
 
@@ -2530,7 +2575,7 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   sofCard.style.display = 'block';
 
   const sofItems = [
-    { id:'sofBuilding', label:'Building sum insured / RV or index linking confirmed', relevantIf: () => r.compliance?.RV?.result === 'fail', passesRV: true },
+    { id:'sofBuilding', label:'Building sum insured / RV or index linking confirmed', relevantIf: () => ['fail','needs_review'].includes(r.compliance?.RV?.result), passesRV: true },
     { id:'sofDirectors', label:'Directors declarations confirmed', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
     { id:'sofCQC', label:'CQC / regulatory compliance confirmed', relevantIf: () => true },
     { id:'sofBeds', label:'Number of beds / occupancy confirmed', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
@@ -2890,9 +2935,7 @@ async function saveToStorage() {
     const applicable = Object.values(c.result.scores).filter(v => v.applicable);
     const total = applicable.reduce((s,v) => s+(v.score||0), 0);
     const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
-    const compResults = ['RV','Cyber','DO'].map(k => c.result.compliance[k]?.result).filter(r => r !== 'na');
-    const compFails = compResults.filter(r => r === 'fail').length;
-    const compGrade = compFails === 0 ? 'PASS' : compFails === compResults.length ? 'FAIL' : 'PARTIAL';
+    const { compGrade, compFails } = computeCompGrade(c.result.compliance);
 
     const handlerRow = handlersByName[c.handler];
     const handlerId = handlerRow ? handlerRow.id : null;
@@ -3102,7 +3145,7 @@ function renderTeamStats(data) {
 
 function renderComplianceRates(data) {
   const rate = (key) => {
-    const relevant = data.filter(r => r.compliance && r.compliance[key] && r.compliance[key].result !== 'na');
+    const relevant = data.filter(r => r.compliance && r.compliance[key] && !['na','needs_review'].includes(r.compliance[key].result));
     if (!relevant.length) return null;
     const pass = relevant.filter(r => r.compliance[key].result === 'pass').length;
     return Math.round((pass / relevant.length) * 100);
@@ -3157,7 +3200,7 @@ function renderHandlerTable(data, teamFilter) {
     if (!handlers[h]) handlers[h] = { cases:[], compliance:{ RV:[], Cyber:[], DO:[] }, team: handlerTeam(h) };
     handlers[h].cases.push(r);
     ['RV','Cyber','DO'].forEach(k => {
-      if (r.compliance && r.compliance[k] && r.compliance[k].result !== 'na') {
+      if (r.compliance && r.compliance[k] && !['na','needs_review'].includes(r.compliance[k].result)) {
         handlers[h].compliance[k].push(r.compliance[k].result === 'pass' ? 1 : 0);
       }
     });
@@ -3232,7 +3275,7 @@ function onSOFChange(persist = true) {
   if (!lastResult) return;
 
   const buildingTicked = document.getElementById('sofBuilding')?.checked;
-  if (buildingTicked && lastResult.compliance?.RV?.result === 'fail') {
+  if (buildingTicked && ['fail','needs_review'].includes(lastResult.compliance?.RV?.result)) {
     lastResult.compliance.RV = { result: 'pass', note: 'Building sum insured / RV / index linking confirmed via SOF' };
     const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
     render(lastResult, c.name||'Unknown', c.ref||'N/A', c.handler||'Unknown', c.renewal||'');
@@ -3293,13 +3336,13 @@ function initAuditAssistant() {
   messages.innerHTML = '';
 
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-  const compFails = ['RV','Cyber','DO'].filter(k => lastResult?.compliance?.[k]?.result === 'fail');
+  const compNeedsAttention = ['RV','Cyber','DO'].filter(k => ['fail','needs_review'].includes(lastResult?.compliance?.[k]?.result));
   const bsNotAsked = Object.keys(lastResult?.businessSolutions||{}).filter(k => lastResult.businessSolutions[k].result === 'not_asked');
 
   const complianceLabels = { RV:'Reinstatement Values', Cyber:'Cyber Insurance', DO:'Directors & Officers' };
   const bsLabels = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Management', sales:'Sales' };
 
-  const hasOverrides = compFails.length > 0 || bsNotAsked.length > 0;
+  const hasOverrides = compNeedsAttention.length > 0 || bsNotAsked.length > 0;
 
   if (hasOverrides) {
     const overrideWrap = document.createElement('div');
@@ -3310,7 +3353,7 @@ function initAuditAssistant() {
     overrideTitle.textContent = 'Report overrides — click to adjust if not relevant to this call:';
     overrideWrap.appendChild(overrideTitle);
 
-    if (compFails.length > 0) {
+    if (compNeedsAttention.length > 0) {
       const compSection = document.createElement('div');
       compSection.style.cssText = 'display:flex;flex-direction:column;gap:6px';
       const compLabel = document.createElement('div');
@@ -3318,25 +3361,32 @@ function initAuditAssistant() {
       compLabel.textContent = 'Compliance';
       compSection.appendChild(compLabel);
 
-      compFails.forEach(k => {
+      compNeedsAttention.forEach(k => {
+        const currentResult = lastResult?.compliance?.[k]?.result;
+        const currentLabel = currentResult === 'needs_review' ? 'NEEDS REVIEW' : 'FAIL';
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
         const lbl = document.createElement('span');
         lbl.style.cssText = 'font-size:12px;font-weight:500;color:var(--text)';
-        lbl.textContent = complianceLabels[k] + ' — FAIL';
+        lbl.textContent = complianceLabels[k] + ' — ' + currentLabel;
         row.appendChild(lbl);
         const grp = document.createElement('div');
-        grp.style.cssText = 'display:flex;gap:6px';
+        grp.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
         const naBtn = document.createElement('button');
-        naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+        naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
         naBtn.textContent = 'Set N/A';
-        naBtn.onclick = () => applyComplianceOverride(k, 'na', 'Set to N/A by auditor', naBtn, passBtn);
-        grp.appendChild(naBtn);
         const passBtn = document.createElement('button');
-        passBtn.style.cssText = 'background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+        passBtn.style.cssText = 'background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
         passBtn.textContent = 'Set Pass';
-        passBtn.onclick = () => applyComplianceOverride(k, 'pass', 'Confirmed as discussed by auditor', passBtn, naBtn);
+        const reviewBtn = document.createElement('button');
+        reviewBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+        reviewBtn.textContent = 'Set Needs Review';
+        naBtn.onclick = () => applyComplianceOverride(k, 'na', 'Set to N/A by auditor', naBtn, [passBtn, reviewBtn]);
+        passBtn.onclick = () => applyComplianceOverride(k, 'pass', 'Confirmed as discussed by auditor', passBtn, [naBtn, reviewBtn]);
+        reviewBtn.onclick = () => applyComplianceOverride(k, 'needs_review', 'Set to needs review by auditor — client did not genuinely engage despite contact attempts', reviewBtn, [naBtn, passBtn]);
+        grp.appendChild(naBtn);
         grp.appendChild(passBtn);
+        if (currentResult !== 'needs_review') grp.appendChild(reviewBtn); // don't offer to set it to what it already is
         row.appendChild(grp);
         compSection.appendChild(row);
       });
@@ -3352,7 +3402,7 @@ function initAuditAssistant() {
       bsSection.appendChild(bsLabel);
 
       const allNaBtn = document.createElement('button');
-      allNaBtn.style.cssText = 'background:var(--bg);border:1px solid var(--border2);color:var(--muted);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer;width:fit-content';
+      allNaBtn.style.cssText = 'background:var(--bg);border:1px solid var(--border2);color:var(--muted);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer;width:fit-content';
       allNaBtn.textContent = 'Set all to N/A';
       allNaBtn.onclick = () => {
         bsNotAsked.forEach(k => applyBSOverride(k, 'na', 'Not applicable to this call'));
@@ -3373,7 +3423,7 @@ function initAuditAssistant() {
         row.appendChild(lbl);
         const naBtn = document.createElement('button');
         naBtn.className = 'bs-override-btn';
-        naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Inter\',sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+        naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
         naBtn.textContent = 'Set N/A';
         naBtn.onclick = () => {
           applyBSOverride(k, 'na', 'Not applicable to this call — set by auditor', naBtn);
@@ -3388,7 +3438,7 @@ function initAuditAssistant() {
   }
 
   let opening = `I've reviewed the audit for **${c.name || 'this case'}**.`;
-  if (compFails.length > 0) opening += ` There ${compFails.length === 1 ? 'is' : 'are'} **${compFails.length} compliance fail${compFails.length > 1 ? 's' : ''}** — use the override buttons above if any aren't relevant to this case.`;
+  if (compNeedsAttention.length > 0) opening += ` There ${compNeedsAttention.length === 1 ? 'is' : 'are'} **${compNeedsAttention.length} compliance item${compNeedsAttention.length > 1 ? 's' : ''} flagged (fail or needs review)** — use the override buttons above if any aren't right for this case.`;
   if (bsNotAsked.length > 0) opening += ` **${bsNotAsked.length} Business Solution${bsNotAsked.length > 1 ? 's were' : ' was'} not asked** — set to N/A above if this wasn't a suitable call for those conversations.`;
   opening += `\n\nYou can also ask me to adjust anything in the report — scores, findings, next steps — and I'll update it for you.`;
 
@@ -3476,7 +3526,7 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
       try {
         const adjusted = JSON.parse(adjustedMatch[1]);
         const applyBtn = document.createElement('button');
-        applyBtn.style.cssText = 'margin-top:10px;background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 16px;font-family:\'Inter\',sans-serif;font-size:12px;font-weight:600;cursor:pointer';
+        applyBtn.style.cssText = 'margin-top:10px;background:var(--qc);color:white;border:none;border-radius:7px;padding:8px 16px;font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:12px;font-weight:600;cursor:pointer';
         applyBtn.textContent = '✓ Apply all adjusted scores';
         applyBtn.onclick = () => applyAdjustedScores(adjusted, applyBtn);
         document.getElementById('auditChatMessages').appendChild(applyBtn);
@@ -3509,7 +3559,7 @@ function applyBSOverride(key, result, note, btn) {
   }
 }
 
-function applyComplianceOverride(key, result, note, btn, siblingBtn) {
+function applyComplianceOverride(key, result, note, btn, siblingBtns) {
   if (!lastResult) return;
   lastResult.compliance[key] = { result, note };
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
@@ -3518,13 +3568,17 @@ function applyComplianceOverride(key, result, note, btn, siblingBtn) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
   }
-  btn.textContent = '✓ ' + (result === 'na' ? 'N/A' : 'Pass') + ' applied';
+  const labels = { na: 'N/A', pass: 'Pass', needs_review: 'Needs Review' };
+  const tone = result === 'pass' ? 'ok' : 'warn'; // na and needs_review both read as amber/warn, pass as green
+  btn.textContent = '✓ ' + (labels[result] || result) + ' applied';
   btn.disabled = true;
-  btn.style.background = result === 'na' ? 'var(--warn-bg)' : 'var(--ok-bg)';
-  btn.style.borderColor = result === 'na' ? 'var(--warn-border)' : 'var(--ok-border)';
-  btn.style.color = result === 'na' ? 'var(--warn)' : 'var(--ok)';
+  btn.style.background = `var(--${tone}-bg)`;
+  btn.style.borderColor = `var(--${tone}-border)`;
+  btn.style.color = `var(--${tone})`;
   btn.style.cursor = 'default';
-  if (siblingBtn) { siblingBtn.disabled = true; siblingBtn.style.opacity = '0.35'; siblingBtn.style.cursor = 'default'; }
+  (siblingBtns || []).forEach(sib => {
+    if (sib) { sib.disabled = true; sib.style.opacity = '0.35'; sib.style.cursor = 'default'; }
+  });
 }
 
 function applyAdjustedScores(adjusted, btn) {
@@ -3731,9 +3785,7 @@ function exportPDF() {
   const applicable = Object.values(r.scores||{}).filter(v => v.applicable);
   const total = applicable.reduce((s,v) => s+(v.score||0), 0);
   const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
-  const compResults = ['RV','Cyber','DO'].map(k => r.compliance?.[k]?.result).filter(r => r !== 'na');
-  const compFails = compResults.filter(r => r === 'fail').length;
-  const compGrade = compFails === 0 ? 'PASS' : compFails === compResults.length ? 'FAIL' : 'PARTIAL';
+  const { compGrade, compFails } = computeCompGrade(r.compliance);
   const gradeCol = compGrade === 'PASS' ? '#1a7a4a' : compGrade === 'PARTIAL' ? '#8a5a00' : '#9b1f1f';
   const gradeBg = compGrade === 'PASS' ? '#edf7f2' : compGrade === 'PARTIAL' ? '#fdf6e3' : '#fdf0f0';
   const gradeBorder = compGrade === 'PASS' ? '#a3d9bc' : compGrade === 'PARTIAL' ? '#f5d07a' : '#f5a9a9';
@@ -3744,12 +3796,13 @@ function exportPDF() {
 
   const flagHTML = ['RV','Cyber','DO'].map(k => {
     const comp = r.compliance?.[k] || {};
-    const bg = comp.result==='pass' ? '#edf7f2' : comp.result==='fail' ? '#fdf0f0' : '#F4F4F4';
-    const bc = comp.result==='pass' ? '#a3d9bc' : comp.result==='fail' ? '#f5a9a9' : '#D1D5DB';
-    const rc = comp.result==='pass' ? '#1a7a4a' : comp.result==='fail' ? '#9b1f1f' : '#6B7280';
+    const bg = comp.result==='pass' ? '#edf7f2' : comp.result==='fail' ? '#fdf0f0' : comp.result==='needs_review' ? '#fdf6e3' : '#F4F4F4';
+    const bc = comp.result==='pass' ? '#a3d9bc' : comp.result==='fail' ? '#f5a9a9' : comp.result==='needs_review' ? '#f5d07a' : '#D1D5DB';
+    const rc = comp.result==='pass' ? '#1a7a4a' : comp.result==='fail' ? '#9b1f1f' : comp.result==='needs_review' ? '#8a5a00' : '#6B7280';
+    const label = comp.result==='na' ? 'N/A' : comp.result==='needs_review' ? 'NEEDS REVIEW' : (comp.result||'—').toUpperCase();
     return `<div style="border:1px solid ${bc};background:${bg};border-radius:6px;padding:10px 12px">
       <div style="font-weight:600;font-size:12px;margin-bottom:3px">${compLabels[k]}</div>
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${rc}">${comp.result==='na'?'N/A':(comp.result||'—').toUpperCase()}</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${rc}">${label}</div>
       <div style="font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4">${comp.note||''}</div>
     </div>`;
   }).join('');
@@ -4090,7 +4143,7 @@ async function renderHandlerReport() {
 
   const compKeys = ['RV','Cyber','DO'];
   const compRates = compKeys.map(k => {
-    const rel = data.filter(r => r.compliance?.[k]?.result !== 'na');
+    const rel = data.filter(r => !['na','needs_review'].includes(r.compliance?.[k]?.result));
     const pass = rel.filter(r => r.compliance?.[k]?.result === 'pass');
     return { key:k, label:k==='DO'?'D&O':k, rate:rel.length?Math.round(pass.length/rel.length*100):null };
   });
@@ -4256,7 +4309,7 @@ async function renderComplianceReport() {
 
   const compKeys = [{k:'RV',label:'Reinstatement Values'},{k:'Cyber',label:'Cyber Insurance'},{k:'DO',label:'Directors & Officers'},{k:'MF',label:'Material Facts'}];
   const rates = compKeys.map(({k,label}) => {
-    const rel = k==='MF' ? data : data.filter(r=>r.compliance?.[k]?.result!=='na');
+    const rel = k==='MF' ? data : data.filter(r=>!['na','needs_review'].includes(r.compliance?.[k]?.result));
     const pass = k==='MF' ? data.filter(r=>r.compGrade==='PASS') : rel.filter(r=>r.compliance?.[k]?.result==='pass');
     return { k, label, rate:rel.length?Math.round(pass.length/rel.length*100):null };
   });
@@ -4300,14 +4353,17 @@ async function renderComplianceReport() {
       ${failCases.length === 0 ? '<div class="empty-dash">No compliance failures in this period.</div>' :
         failCases.map(r => {
           const missed = [];
-          if (r.compliance?.RV?.result==='fail') missed.push('RV — '+( r.compliance.RV.note||'Not discussed'));
-          if (r.compliance?.Cyber?.result==='fail') missed.push('Cyber — '+(r.compliance.Cyber.note||'Not discussed'));
-          if (r.compliance?.DO?.result==='fail') missed.push('D&O — '+(r.compliance.DO.note||'Not discussed'));
-          if (r.compGrade==='PARTIAL'&&missed.length===0) missed.push('Material facts incomplete');
+          if (r.compliance?.RV?.result==='fail') missed.push({label:'RV — '+(r.compliance.RV.note||'Not discussed'), pill:'fail', text:'FAIL'});
+          if (r.compliance?.Cyber?.result==='fail') missed.push({label:'Cyber — '+(r.compliance.Cyber.note||'Not discussed'), pill:'fail', text:'FAIL'});
+          if (r.compliance?.DO?.result==='fail') missed.push({label:'D&O — '+(r.compliance.DO.note||'Not discussed'), pill:'fail', text:'FAIL'});
+          if (r.compliance?.RV?.result==='needs_review') missed.push({label:'RV — '+(r.compliance.RV.note||'Client did not engage'), pill:'needs_review', text:'NEEDS REVIEW'});
+          if (r.compliance?.Cyber?.result==='needs_review') missed.push({label:'Cyber — '+(r.compliance.Cyber.note||'Client did not engage'), pill:'needs_review', text:'NEEDS REVIEW'});
+          if (r.compliance?.DO?.result==='needs_review') missed.push({label:'D&O — '+(r.compliance.DO.note||'Client did not engage'), pill:'needs_review', text:'NEEDS REVIEW'});
+          if (r.compGrade==='PARTIAL'&&missed.length===0) missed.push({label:'Material facts incomplete', pill:'fail', text:'FAIL'});
           return `<div class="comp-gap-row" onclick="jumpToCase('${r.caseId||''}','${r.monthKey||''}')" style="cursor:pointer" onmouseover="this.style.background='var(--qc-light)'" onmouseout="this.style.background=''" title="Click to open this case">
             <span style="font-weight:500">${r.handler||'—'}</span>
             <span style="color:var(--muted);font-size:11px">${r.auditedAt?new Date(r.auditedAt).toLocaleDateString('en-GB'):'—'}<br>${r.ref||''} ${r.name?'— '+r.name.slice(0,25):''}</span>
-            <span style="font-size:11.5px">${missed.map(m=>`<div style="margin-bottom:2px"><span class="flag-pill fail">FAIL</span> ${m}</div>`).join('')}</span>
+            <span style="font-size:11.5px">${missed.map(m=>`<div style="margin-bottom:2px"><span class="flag-pill ${m.pill}">${m.text}</span> ${m.label}</div>`).join('')}</span>
           </div>`;
         }).join('')}
     </div>`;
