@@ -3193,7 +3193,12 @@ async function createAdminUser() {
     if (!data.configured) { showStatus('⚠ ' + (data.message || 'Not configured.'), 'danger'); return; }
     if (data.error) { showStatus('⚠ ' + data.error, 'danger'); return; }
 
-    showStatus(`✓ Invite sent to ${email}`, 'ok');
+    const outcomeMessages = {
+      invited: `✓ Invite sent to ${email}`,
+      relinked: `✓ Reconnected ${email} — they already had working credentials, no new email needed`,
+      relinked_with_recovery: `✓ Reconnected ${email} and sent them an email to set a password, since they never finished setting one up before`
+    };
+    showStatus(outcomeMessages[data.outcome] || `✓ Invite sent to ${email}`, 'ok');
     document.getElementById('adminNewName').value = '';
     document.getElementById('adminNewEmail').value = '';
     document.getElementById('adminNewIsAdmin').checked = false;
