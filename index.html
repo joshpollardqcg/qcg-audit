@@ -2102,6 +2102,7 @@ async function handleAudioUpload(fileList) {
     setAudioUploadStatus(`Only ${emptySlots.length} empty slot${emptySlots.length!==1?'s':''} available — processing the first ${toProcess.length} file${toProcess.length!==1?'s':''}, the rest were skipped.`, 'warn');
   }
 
+  let succeeded = 0;
   for (let i = 0; i < toProcess.length; i++) {
     const file = toProcess[i];
     const slotNum = emptySlots[i];
@@ -2123,12 +2124,21 @@ async function handleAudioUpload(fileList) {
       updateSlotStatus(slotNum);
       const slotBody = document.getElementById('slotBody' + slotNum);
       if (slotBody && slotBody.classList.contains('collapsed')) toggleSlot(slotNum);
+      succeeded++;
     } catch (e) {
       setAudioUploadStatus(`✗ ${file.name} failed: ` + e.message, 'danger');
     }
   }
 
-  setAudioUploadStatus(`✓ Transcribed ${toProcess.length} recording${toProcess.length!==1?'s':''} into the slots below`, 'ok');
+  // Honest about partial failures — a file that errored partway through
+  // must not get silently counted as transcribed in this final message.
+  if (succeeded === toProcess.length) {
+    setAudioUploadStatus(`✓ Transcribed ${succeeded} recording${succeeded!==1?'s':''} into the slots below`, 'ok');
+  } else if (succeeded > 0) {
+    setAudioUploadStatus(`⚠ Transcribed ${succeeded} of ${toProcess.length} — check above for which one${toProcess.length-succeeded!==1?'s':''} failed`, 'warn');
+  } else {
+    setAudioUploadStatus(`✗ None of the ${toProcess.length} file${toProcess.length!==1?'s':''} transcribed successfully — check the errors above`, 'danger');
+  }
   document.getElementById('audioUploadInput').value = ''; // allow re-selecting the same file if needed
 }
 
@@ -2228,12 +2238,13 @@ async function pullSelected8x8Calls() {
 
   // Find empty call slots to fill, in order
   const emptySlots = [1,2,3,4,5,6].filter(n => !document.getElementById('slotText'+n).value.trim());
-  if (!emptySlots.length) { setFetch8x8Status('All 4 call slots are already full — clear one first.', 'danger'); return; }
+  if (!emptySlots.length) { setFetch8x8Status('All 6 call slots are already full — clear one first.', 'danger'); return; }
 
   const toProcess = checked.slice(0, emptySlots.length);
   const pullBtn = document.getElementById('pullSelected8x8Btn');
   pullBtn.disabled = true;
 
+  let succeeded = 0;
   for (let i = 0; i < toProcess.length; i++) {
     const rec = toProcess[i];
     const slotNum = emptySlots[i];
@@ -2246,9 +2257,18 @@ async function pullSelected8x8Calls() {
     updateSlotStatus(slotNum);
     const slotBody = document.getElementById('slotBody' + slotNum);
     if (slotBody && slotBody.classList.contains('collapsed')) toggleSlot(slotNum);
+    succeeded++;
   }
 
-  setFetch8x8Status(`✓ Pulled ${toProcess.length} call${toProcess.length!==1?'s':''} into the slots below`, 'ok');
+  // Honest about partial failures — a call that errored partway through
+  // must not get silently counted as pulled in this final message.
+  if (succeeded === toProcess.length) {
+    setFetch8x8Status(`✓ Pulled ${succeeded} call${succeeded!==1?'s':''} into the slots below`, 'ok');
+  } else if (succeeded > 0) {
+    setFetch8x8Status(`⚠ Pulled ${succeeded} of ${toProcess.length} — check above for which one${toProcess.length-succeeded!==1?'s':''} failed`, 'warn');
+  } else {
+    setFetch8x8Status(`✗ None of the ${toProcess.length} call${toProcess.length!==1?'s':''} pulled successfully — check the errors above`, 'danger');
+  }
   pullBtn.disabled = false;
 }
 
@@ -3048,8 +3068,12 @@ async function removeUnassigned(name) {
   // session-local list removal like it was on localStorage. Their past
   // audits keep their scores but lose the name link once this runs, since
   // handler_id references this row with ON DELETE SET NULL.
-  if (!confirm(`Permanently delete handler "${name}"? This cannot be undone. Their past audits will keep their scores but lose the handler name link.`)) return;
   const h = handlersByName[name];
+  const hasLogin = !!h?.auth_user_id;
+  const warning = hasLogin
+    ? `Permanently delete handler "${name}"? This cannot be undone. They currently have a login — deleting them here also revokes their access permanently, with no way to relink it, unlike Revoke in the admin panel. Their past audits will keep their scores but lose the handler name link.`
+    : `Permanently delete handler "${name}"? This cannot be undone. Their past audits will keep their scores but lose the handler name link.`;
+  if (!confirm(warning)) return;
   if (h) {
     const { error } = await sb.from('handlers').delete().eq('id', h.id);
     if (error) { alert('Could not delete handler: ' + error.message); return; }
@@ -3174,9 +3198,7 @@ async function createAdminUser() {
     document.getElementById('adminNewEmail').value = '';
     document.getElementById('adminNewIsAdmin').checked = false;
     await loadHandlersCache();
-    await populateAdminUserForm();
-    await loadAdminUsers();
-    renderTeamsView();
+    renderTeamsView(); // already re-populates the admin form and refreshes the user list internally
     renderHandlerSelect();
   } catch (e) {
     showStatus('✗ ' + e.message, 'danger');
@@ -4216,17 +4238,42 @@ function exportPDF() {
   }).join('');
 
   const savedSof = (currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData : null) || {};
-  const mfItems = ['sofBuilding','sofDirectors','sofCQC','sofBeds','sofStaff','sofChanges'];
-  const mfChecked = mfItems.filter(id => savedSof[id]).length;
-  const mfTotal = mfItems.length;
-  const mfResult = mfChecked === mfTotal ? 'pass' : mfChecked > 0 ? 'partial' : 'pending';
-  const mfBg = mfResult==='pass'?'#edf7f2':mfResult==='partial'?'#fdf6e3':'#F4F4F4';
-  const mfBc = mfResult==='pass'?'#a3d9bc':mfResult==='partial'?'#f5d07a':'#D1D5DB';
-  const mfRc = mfResult==='pass'?'#1a7a4a':mfResult==='partial'?'#8a5a00':'#6B7280';
+
+  // Must match onSOFChange()'s logic exactly, otherwise the PDF can show a
+  // different Material Facts result than what's actually on screen — same
+  // relevance rules (some items don't apply to every call), and the manual
+  // override takes priority over the calculation entirely, same as live.
+  let mfResult, mfNote;
+  if (savedSof.mfOverride) {
+    mfResult = savedSof.mfOverride.result;
+    mfNote = savedSof.mfOverride.note;
+  } else {
+    const mfItemDefs = [
+      { id:'sofBuilding', relevantIf: () => ['fail','needs_review'].includes(r.compliance?.RV?.result) },
+      { id:'sofDirectors', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
+      { id:'sofCQC', relevantIf: () => true },
+      { id:'sofBeds', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
+      { id:'sofStaff', relevantIf: () => (r.scores?.technical?.score||0) < r.scores?.technical?.max },
+      { id:'sofChanges', relevantIf: () => (r.scores?.callEffectiveness?.score||0) < 3 }
+    ];
+    const relevantIds = mfItemDefs.filter(d => d.relevantIf()).map(d => d.id);
+    if (relevantIds.length === 0) {
+      mfResult = 'pass'; mfNote = 'All material facts covered on the call';
+    } else {
+      const ticked = relevantIds.filter(id => savedSof[id]);
+      if (ticked.length === relevantIds.length) { mfResult = 'pass'; mfNote = 'All material facts confirmed via SOF / email'; }
+      else if (ticked.length > 0) { mfResult = 'partial'; mfNote = `${ticked.length} of ${relevantIds.length} material facts confirmed`; }
+      else { mfResult = 'fail'; mfNote = 'Material facts not confirmed via SOF or email'; }
+    }
+  }
+  const mfBg = mfResult==='pass'?'#edf7f2':mfResult==='fail'?'#fdf0f0':mfResult==='needs_review'||mfResult==='partial'?'#fdf6e3':'#F4F4F4';
+  const mfBc = mfResult==='pass'?'#a3d9bc':mfResult==='fail'?'#f5a9a9':mfResult==='needs_review'||mfResult==='partial'?'#f5d07a':'#D1D5DB';
+  const mfRc = mfResult==='pass'?'#1a7a4a':mfResult==='fail'?'#9b1f1f':mfResult==='needs_review'||mfResult==='partial'?'#8a5a00':'#6B7280';
+  const mfLabel = mfResult==='na'?'N/A':mfResult==='needs_review'?'NEEDS REVIEW':mfResult.toUpperCase();
   const mfFlagHTML = `<div style="border:1px solid ${mfBc};background:${mfBg};border-radius:6px;padding:10px 12px">
     <div style="font-weight:600;font-size:12px;margin-bottom:3px">Material Facts</div>
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${mfRc}">${mfResult==='pending'?'PENDING':mfResult==='pass'?'PASS':'PARTIAL'}</div>
-    <div style="font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4">${mfChecked}/${mfTotal} items confirmed via SOF</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${mfRc}">${mfLabel}</div>
+    <div style="font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4">${mfNote}</div>
   </div>`;
 
   const scoresHTML = Object.entries(r.scores||{})
