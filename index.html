@@ -1074,6 +1074,22 @@ async function loadKnownMonths() {
 
 // Maps a DB case row (+ its latest audit row, if any) to the shape the
 // existing UI code already expects, so renderQueue/openCase/etc need no changes.
+// Renaming a scoring category (e.g. lastMileCrossSell -> crossSell) only
+// ever changes the code going forward — audits already scored and saved
+// before the rename keep their data under the old key name in the
+// database, forever, since nothing rewrites old rows. Every place that
+// reads stored scores needs to migrate the key on the way in, once here,
+// rather than scattering fallback checks through render/export/reports
+// separately and risking missing one.
+function migrateScoreKeys(scores) {
+  if (!scores) return scores;
+  if (scores.lastMileCrossSell && !scores.crossSell) {
+    scores.crossSell = scores.lastMileCrossSell;
+    delete scores.lastMileCrossSell;
+  }
+  return scores;
+}
+
 function dbCaseToLocal(c, audit) {
   const handlerName = c.handler_id ? (handlersById[c.handler_id]?.name || '') : '';
   return {
@@ -1088,7 +1104,7 @@ function dbCaseToLocal(c, audit) {
     scorePct: audit ? audit.score_pct : undefined,
     compGrade: audit ? audit.comp_grade : undefined,
     result: audit ? {
-      callTypes: audit.call_types, scores: audit.scores, compliance: audit.compliance,
+      callTypes: audit.call_types, scores: migrateScoreKeys(audit.scores), compliance: audit.compliance,
       businessSolutions: audit.business_solutions, summary: audit.summary,
       strengths: audit.strengths, gaps: audit.gaps, nextSteps: audit.next_steps, devPlan: audit.dev_plan
     } : null,
@@ -3355,7 +3371,7 @@ async function loadHistory() {
       renewal: c.renewal_date || '', auditedAt: a.audited_at,
       score: a.score, maxScore: a.max_score, scorePct: a.score_pct,
       compGrade: a.comp_grade, compFails: a.comp_fails,
-      callTypes: a.call_types || [], scores: a.scores, compliance: a.compliance,
+      callTypes: a.call_types || [], scores: migrateScoreKeys(a.scores), compliance: a.compliance,
       businessSolutions: a.business_solutions, sofData: a.sof_data,
       summary: a.summary, gaps: a.gaps, nextSteps: a.next_steps, devPlan: a.dev_plan
     };
