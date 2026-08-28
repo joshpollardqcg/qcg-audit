@@ -351,7 +351,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
         <div class="pstat"><div class="pstat-num" id="pTotal">0</div><div class="pstat-label">Total</div></div>
       </div>
       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
-      <button class="sec-btn" id="clearQueueBtn" data-confirm="0" onclick="clearQueue()">Clear Month</button>
+      <button class="sec-btn" id="clearQueueBtn" data-confirm="0" onclick="clearQueue()">Delete Month</button>
     </div>
 
     <div id="importMsg" style="display:none;border:1px solid;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:12px"></div>
@@ -1323,10 +1323,9 @@ function addNewMonth() {
   const modal = document.createElement('div');
   modal.style.cssText = 'background:var(--white);border-radius:12px;padding:24px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.15)';
   modal.innerHTML = `
-    <div style="font-family:'Jost',sans-serif;font-size:17px;font-weight:500;margin-bottom:6px">Switch to a month</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Type any month — past or future, doesn't have to be the one suggested below.</div>
-    <input type="text" id="monthPickerInput" value="${suggestedKey}" placeholder="YYYY-MM" style="width:100%;font-size:14px;padding:9px 12px;margin-bottom:6px">
-    <div style="font-size:11px;color:var(--muted2);margin-bottom:18px">Examples: 2025-06 for a past month, 2027-01 for a future one.</div>
+    <div style="font-family:'Jost',sans-serif;font-size:17px;font-weight:500;margin-bottom:10px">Switch to a month</div>
+    <input type="text" id="monthPickerInput" value="${suggestedKey}" style="width:100%;font-size:14px;padding:9px 12px;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:16px">Any month, past or future — e.g. 2026-09</div>
     <div style="display:flex;justify-content:flex-end;gap:8px">
       <button onclick="document.getElementById('monthPickerOverlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;padding:8px 16px;border-radius:7px;cursor:pointer">Cancel</button>
       <button onclick="confirmMonthPicker()" style="background:var(--qc);color:white;border:none;font-family:'Jost',sans-serif;font-weight:600;font-size:13px;padding:8px 18px;border-radius:7px;cursor:pointer">Go</button>
@@ -1730,23 +1729,41 @@ async function clearQueue() {
   if (btn.dataset.confirm === '1') {
     const expectedCount = cases.length;
     const { data, error } = await sb.from('cases').delete().eq('month_key', currentMonth).select();
-    if (error) { alert('Could not clear month: ' + error.message); return; }
+    if (error) { alert('Could not delete month: ' + error.message); return; }
     // A delete blocked by RLS returns success with zero affected rows, not
     // an error — check explicitly rather than trusting the absence of one.
     if (expectedCount > 0 && (!data || data.length === 0)) {
       alert('Nothing was actually deleted — this usually means a permissions issue. Check with whoever manages the database.');
-      btn.textContent = 'Clear Month';
+      btn.textContent = 'Delete Month';
       btn.dataset.confirm = '0';
       return;
     }
-    cases = [];
-    btn.textContent = 'Clear Month';
+
+    // Clearing the cases alone used to leave the now-empty month sitting in
+    // the dropdown for the rest of the session — this actually removes it,
+    // and switches to a sensible other month rather than leaving the view
+    // pointed at a month key that no longer exists anywhere.
+    const deletedMonth = currentMonth;
+    knownMonths = knownMonths.filter(m => m !== deletedMonth);
+    const fallback = [...knownMonths].sort().reverse()[0] || getCurrentMonthKey();
+
+    // If a case was open in the Audit view, close it before switching —
+    // otherwise currentCaseIdx keeps pointing at that same numeric
+    // position, which now belongs to a completely different case in the
+    // fallback month. Any further action taken (an override, a delete)
+    // would silently hit the wrong case rather than the one on screen.
+    const hadCaseOpen = currentCaseIdx !== null;
+    currentCaseIdx = null;
+    document.getElementById('tabAudit').style.display = 'none';
+
+    btn.textContent = 'Delete Month';
     btn.dataset.confirm = '0';
-    renderQueue();
+    await switchMonth(fallback);
+    if (hadCaseOpen) switchView('queue'); // don't leave them stranded on a now-dead case screen
   } else {
     btn.textContent = 'Click again to confirm';
     btn.dataset.confirm = '1';
-    setTimeout(() => { btn.textContent = 'Clear Month'; btn.dataset.confirm = '0'; }, 3000);
+    setTimeout(() => { btn.textContent = 'Delete Month'; btn.dataset.confirm = '0'; }, 3000);
   }
 }
 
@@ -3223,6 +3240,16 @@ async function saveToStorage() {
     const maxT  = applicable.reduce((s,v) => s+(v.max||0), 0);
     const { compGrade, compFails } = computeCompGrade(c.result.compliance);
 
+    // These get written to the database below regardless, but the Queue
+    // card reads straight from this in-memory case object, not a fresh DB
+    // fetch — without this, an override or SOF change made after the
+    // original audit would update the database and the case view
+    // correctly, while the Queue silently kept showing the grade from the
+    // moment the audit first ran, stale until the next full reload.
+    c.score = total + '/' + maxT;
+    c.scorePct = maxT > 0 ? total/maxT : 0;
+    c.compGrade = compGrade;
+
     const handlerRow = handlersByName[c.handler];
     const handlerId = handlerRow ? handlerRow.id : null;
 
@@ -4006,6 +4033,11 @@ function reAnalyse() {
     cases[currentCaseIdx].audited = false;
     cases[currentCaseIdx].inProgress = false;
     cases[currentCaseIdx].result = null;
+    // A genuinely fresh analysis shouldn't silently inherit a manual
+    // Material Facts override (or any SOF checklist state) set against the
+    // previous audit — that judgment was made for different transcript
+    // content, it doesn't automatically still apply here.
+    cases[currentCaseIdx].sofData = null;
   }
 }
 
