@@ -32,9 +32,6 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:0 3
 .header-logo{height:26px;width:auto}
 .hd{width:1px;height:22px;background:var(--border2);flex-shrink:0}
 .htitle{font-family:'Jost',sans-serif;font-size:15px;font-weight:500;letter-spacing:-0.01em}
-.hbadge{margin-left:auto;display:flex;align-items:center;gap:6px;background:var(--qc-light);border:1px solid var(--qc-mid);color:var(--qc-dark);font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px}
-.hdot{width:6px;height:6px;border-radius:50%;background:var(--qc);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* TABS */
@@ -280,8 +277,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
   <div id="fb" style="display:none;align-items:center;gap:7px"><div style="width:26px;height:26px;border-radius:5px;background:var(--qc);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:11px">Q</div><span style="font-family:'Jost',sans-serif;font-weight:600;font-size:14px;color:var(--qc-dark)">Quality Care Group</span></div>
   <div class="hd"></div>
   <span class="htitle">Deep Dive Audit Tool</span>
-  <div class="hbadge"><div class="hdot"></div>AI-Powered</div>
-  <div id="userBadge" style="display:none;align-items:center;gap:10px;margin-left:12px">
+  <div id="userBadge" style="display:none;align-items:center;gap:10px;margin-left:auto">
     <span id="userBadgeName" style="font-size:12px;color:var(--muted);font-weight:500"></span>
     <button onclick="logout()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer">Log out</button>
   </div>
@@ -395,6 +391,9 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
               <option value="complete">Complete</option>
               <option value="signed_off">Reviewed &amp; Signed Off</option>
             </select>
+          </div>
+          <div class="f" style="grid-column:1/-1">
+            <button onclick="showMoveMonthDialog()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;width:100%">📅 Move to another month</button>
           </div>
           <div class="f" style="grid-column:1/-1">
             <button id="deleteCaseBtn" data-confirm="0" onclick="deleteCurrentCase()" style="background:transparent;border:1px solid var(--danger-border);color:var(--danger);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;width:100%">🗑 Delete this case</button>
@@ -593,6 +592,13 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
           </div>
           <div id="sofGapItems" style="display:flex;flex-direction:column;gap:6px"></div>
           <div id="sofAllCovered" style="display:none;font-size:12px;color:var(--ok);padding:8px 0">✓ All material facts were covered on the call — nothing to add here.</div>
+
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Material Facts result</div>
+            <div id="mfAutoNote" style="font-size:11px;color:var(--muted2);margin-bottom:6px">Calculated automatically from the boxes above — some may not apply to this policy type, use the override below if the automatic result doesn't fit.</div>
+            <div id="mfOverrideNote" style="display:none;font-size:11px;color:var(--warn);margin-bottom:6px">⚠ Manually set — ticking the boxes above won't change this until you go back to automatic.</div>
+            <div id="mfOverrideButtons" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>
         </div>
 
         <!-- DEVELOPMENT PLAN -->
@@ -956,7 +962,7 @@ const SCORE_LABELS = {
   engagementCheck:'Engagement Check',
   closingProactivity:'Closing Proactivity',
   coverConfirmation:'Cover Confirmation',
-  lastMileCrossSell:'Last Mile Cross-sell',
+  crossSell:'Cross-sell',
   relationshipClose:'Relationship Close',
   renewalChallenge:'Renewal Challenge Quality'
 };
@@ -1139,6 +1145,57 @@ async function deleteCurrentCase() {
   switchView('queue');
 }
 
+function showMoveMonthDialog() {
+  const c = cases[currentCaseIdx];
+  if (!c || !c.id) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'moveMonthOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;display:flex;align-items:center;justify-content:center';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--white);border-radius:12px;padding:24px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.15)';
+  modal.innerHTML = `
+    <div style="font-family:'Jost',sans-serif;font-size:17px;font-weight:500;margin-bottom:6px">Move to another month</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Moves <strong>${c.name || c.ref || 'this case'}</strong> out of ${monthKeyToLabel(currentMonth)} and into the month below. It'll disappear from this month's queue once moved.</div>
+    <input type="text" id="moveMonthInput" value="${currentMonth}" placeholder="YYYY-MM" style="width:100%;font-size:14px;padding:9px 12px;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:18px">Type any month — past or future.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="document.getElementById('moveMonthOverlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;padding:8px 16px;border-radius:7px;cursor:pointer">Cancel</button>
+      <button onclick="confirmMoveMonth()" style="background:var(--qc);color:white;border:none;font-family:'Jost',sans-serif;font-weight:600;font-size:13px;padding:8px 18px;border-radius:7px;cursor:pointer">Move case</button>
+    </div>`;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  const input = document.getElementById('moveMonthInput');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirmMoveMonth(); });
+}
+
+async function confirmMoveMonth() {
+  const input = document.getElementById('moveMonthInput');
+  const trimmed = input.value.trim();
+  if (!/^\d{4}-\d{2}$/.test(trimmed)) { alert('Please enter a month in YYYY-MM format, e.g. 2026-03.'); return; }
+  const monthNum = parseInt(trimmed.split('-')[1], 10);
+  if (monthNum < 1 || monthNum > 12) { alert('Month must be between 01 and 12.'); return; }
+
+  const c = cases[currentCaseIdx];
+  if (!c || !c.id) return;
+
+  if (trimmed === currentMonth) { document.getElementById('moveMonthOverlay').remove(); return; }
+
+  const { error } = await sb.from('cases').update({ month_key: trimmed }).eq('id', c.id);
+  if (error) { alert('Could not move case: ' + error.message); return; }
+
+  document.getElementById('moveMonthOverlay').remove();
+  if (!knownMonths.includes(trimmed)) knownMonths.push(trimmed);
+  cases.splice(currentCaseIdx, 1);
+  currentCaseIdx = null;
+  document.getElementById('tabAudit').style.display = 'none';
+  switchView('queue');
+}
+
 async function loadCasesForMonth(monthKey) {
   const { data: caseRows, error } = await sb.from('cases').select('*').eq('month_key', monthKey).order('created_at');
   if (error) { console.warn('Cases load failed:', error); return []; }
@@ -1256,11 +1313,43 @@ async function switchMonth(key) {
 
 function addNewMonth() {
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth()+1, 1);
-  const key = next.getFullYear() + '-' + String(next.getMonth()+1).padStart(2,'0');
-  currentMonth = key;
+  const suggested = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  const suggestedKey = suggested.getFullYear() + '-' + String(suggested.getMonth()+1).padStart(2,'0');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'monthPickerOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;display:flex;align-items:center;justify-content:center';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--white);border-radius:12px;padding:24px;width:380px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.15)';
+  modal.innerHTML = `
+    <div style="font-family:'Jost',sans-serif;font-size:17px;font-weight:500;margin-bottom:6px">Switch to a month</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Type any month — past or future, doesn't have to be the one suggested below.</div>
+    <input type="text" id="monthPickerInput" value="${suggestedKey}" placeholder="YYYY-MM" style="width:100%;font-size:14px;padding:9px 12px;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:18px">Examples: 2025-06 for a past month, 2027-01 for a future one.</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="document.getElementById('monthPickerOverlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:13px;padding:8px 16px;border-radius:7px;cursor:pointer">Cancel</button>
+      <button onclick="confirmMonthPicker()" style="background:var(--qc);color:white;border:none;font-family:'Jost',sans-serif;font-weight:600;font-size:13px;padding:8px 18px;border-radius:7px;cursor:pointer">Go</button>
+    </div>`;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  const input = document.getElementById('monthPickerInput');
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') confirmMonthPicker(); });
+}
+
+function confirmMonthPicker() {
+  const input = document.getElementById('monthPickerInput');
+  const trimmed = input.value.trim();
+  if (!/^\d{4}-\d{2}$/.test(trimmed)) { alert('Please enter a month in YYYY-MM format, e.g. 2026-03.'); return; }
+  const monthNum = parseInt(trimmed.split('-')[1], 10);
+  if (monthNum < 1 || monthNum > 12) { alert('Month must be between 01 and 12.'); return; }
+  document.getElementById('monthPickerOverlay').remove();
+  currentMonth = trimmed;
   cases = [];
-  if (!knownMonths.includes(key)) knownMonths.push(key);
+  if (!knownMonths.includes(trimmed)) knownMonths.push(trimmed);
   renderMonthSelect();
   renderQueue();
 }
@@ -1272,7 +1361,7 @@ async function exportCSV() {
   const headers = ['Month','Client Ref','Client Name','Handler','Renewal Date','Audited At','Score','Max Score',
     'Contact Strategy','Client Resistance','Call Effectiveness','Technical','Commercial',
     'Presentation Confidence','Market Context','Objection Handling','Engagement Check',
-    'Closing Proactivity','Cover Confirmation','Last Mile Cross-sell','Relationship Close','Renewal Challenge',
+    'Closing Proactivity','Cover Confirmation','Cross-sell','Relationship Close','Renewal Challenge',
     'RV','Cyber','D&O',
     'Recruitment BS','Energy BS','Risk BS','Wealth BS','Sales BS',
     'Summary','Strengths','Gaps','Next Steps','Dev Plan'];
@@ -1298,7 +1387,7 @@ async function exportCSV() {
       sc.engagementCheck?.applicable ? sc.engagementCheck?.score??'' : 'N/A',
       sc.closingProactivity?.applicable ? sc.closingProactivity?.score??'' : 'N/A',
       sc.coverConfirmation?.applicable ? sc.coverConfirmation?.score??'' : 'N/A',
-      sc.lastMileCrossSell?.applicable ? sc.lastMileCrossSell?.score??'' : 'N/A',
+      sc.crossSell?.applicable ? sc.crossSell?.score??'' : 'N/A',
       sc.relationshipClose?.applicable ? sc.relationshipClose?.score??'' : 'N/A',
       sc.renewalChallenge?.applicable ? sc.renewalChallenge?.score??'' : 'N/A',
       co.RV?.result||'', co.Cyber?.result||'', co.DO?.result||'',
@@ -2347,7 +2436,7 @@ Return ONLY valid JSON with this exact structure — no preamble, no markdown:
     "engagementCheck": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false},
     "closingProactivity": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false},
     "coverConfirmation": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false},
-    "lastMileCrossSell": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false},
+    "crossSell": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false},
     "relationshipClose": {"score": 0, "max": 1, "rationale": "one sentence", "applicable": false},
     "renewalChallenge": {"score": 0, "max": 2, "rationale": "one sentence", "applicable": false}
   },
@@ -2439,7 +2528,7 @@ coverConfirmation (0-2):
 1 = Got verbal confirmation but no detail
 2 = Clearly confirmed cover, start date, documentation, next steps
 
-lastMileCrossSell (0-1):
+crossSell (0-1):
 0 = No final attempt on outstanding covers
 1 = Made a genuine final attempt before closing
 
@@ -2606,7 +2695,7 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   const sections = [
     { label:'Core — all calls', keys:['contactStrategy','clientResistance','callEffectiveness','technical','commercial'] },
     { label:'Quote Presentation', keys:['presentationConfidence','marketContext','objectionHandling','engagementCheck'] },
-    { label:'Closing', keys:['closingProactivity','coverConfirmation','lastMileCrossSell','relationshipClose'] },
+    { label:'Closing', keys:['closingProactivity','coverConfirmation','crossSell','relationshipClose'] },
     { label:'Renewal Challenge (Existing Business only)', keys:['renewalChallenge'] }
   ];
 
@@ -2648,7 +2737,13 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   if (relevantItems.length === 0) {
     allCoveredMsg.style.display = 'block';
     gapContainer.style.display = 'none';
-    updateMFFlag('pass', 'All material facts covered on the call — nothing to add');
+    const existingOverride = currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData?.mfOverride : null;
+    if (existingOverride) {
+      updateMFFlag(existingOverride.result, existingOverride.note);
+    } else {
+      updateMFFlag('pass', 'All material facts covered on the call — nothing to add');
+    }
+    renderMFOverrideButtons();
   } else {
     allCoveredMsg.style.display = 'none';
     gapContainer.style.display = 'flex';
@@ -3003,16 +3098,23 @@ async function loadAdminUsers() {
     if (!data.configured) { container.innerHTML = `<div class="empty-dash">⚠ ${data.message || 'Admin credentials not set up on the Worker.'}</div>`; return; }
     if (data.error) { container.innerHTML = `<div class="empty-dash">⚠ ${data.error}</div>`; return; }
 
-    if (!data.users.length) { container.innerHTML = '<div class="empty-dash">No accounts found.</div>'; return; }
+    // Revoke unlinks rather than deletes (see revokeAdminUser) — that
+    // leaves the underlying login intact but ownerless. Deliberately kept
+    // out of this list rather than shown as a dead "unlinked" row; the
+    // login still technically exists, findable directly in Supabase if
+    // it's ever needed, it just doesn't clutter this view.
+    const linkedUsers = data.users.filter(u => u.handlerId);
 
-    container.innerHTML = data.users.map(u => `
+    if (!linkedUsers.length) { container.innerHTML = '<div class="empty-dash">No accounts found.</div>'; return; }
+
+    container.innerHTML = linkedUsers.map(u => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
         <div>
-          <span style="font-weight:500">${u.handlerName || '(not linked to a handler)'}</span>
+          <span style="font-weight:500">${u.handlerName}</span>
           ${u.isAdmin ? '<span style="font-size:9px;font-weight:700;color:var(--qc-dark);background:var(--qc-light);border:1px solid var(--qc-mid);border-radius:3px;padding:1px 5px;margin-left:6px;text-transform:uppercase">admin</span>' : ''}
           <div style="color:var(--muted);font-size:11px">${u.email}</div>
         </div>
-        ${u.handlerId ? `<button onclick="revokeAdminUser('${u.handlerId}','${(u.handlerName||u.email).replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--danger-border);color:var(--danger);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap">Revoke access</button>` : '<span style="color:var(--muted2);font-size:11px">unlinked</span>'}
+        <button onclick="revokeAdminUser('${u.handlerId}','${(u.handlerName||u.email).replace(/'/g,"\\'")}')" style="background:transparent;border:1px solid var(--danger-border);color:var(--danger);font-family:'Aptos','Segoe UI','Calibri',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap">Revoke access</button>
       </div>`).join('');
   } catch (e) {
     container.innerHTML = `<div class="empty-dash">✗ Could not load accounts: ${e.message}</div>`;
@@ -3465,28 +3567,44 @@ function onSOFChange(persist = true) {
     render(lastResult, c.name||'Unknown', c.ref||'N/A', c.handler||'Unknown', c.renewal||'');
   }
 
-  const sofIds = ['sofBuilding','sofDirectors','sofCQC','sofBeds','sofStaff','sofChanges'];
-  const relevantIds = sofIds.filter(id => document.getElementById(id) !== null);
-  const shownItems = relevantIds.filter(id => {
-    const el = document.getElementById(id);
-    return el && el.closest('#sofGapItems') && el.closest('#sofGapItems').style.display !== 'none';
-  });
+  const existingOverride = currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData?.mfOverride : null;
 
-  if (shownItems.length === 0) {
-    updateMFFlag('pass', 'All material facts covered on the call');
-  } else {
-    const ticked = shownItems.filter(id => document.getElementById(id)?.checked);
-    if (ticked.length === shownItems.length) {
-      updateMFFlag('pass', 'All material facts confirmed via SOF / email');
-    } else if (ticked.length > 0) {
-      updateMFFlag('partial', `${ticked.length} of ${shownItems.length} material facts confirmed`);
+  // With no override active, Material Facts is calculated live from the
+  // ticked-vs-shown ratio, same as before. With one active, the boxes still
+  // save normally below, but they stop driving the badge — that's the
+  // whole point of the override, some of these items are genuinely N/A for
+  // certain policy types, not "not yet confirmed", and the automatic ratio
+  // can't tell the difference on its own.
+  if (!existingOverride) {
+    const sofIds = ['sofBuilding','sofDirectors','sofCQC','sofBeds','sofStaff','sofChanges'];
+    const relevantIds = sofIds.filter(id => document.getElementById(id) !== null);
+    const shownItems = relevantIds.filter(id => {
+      const el = document.getElementById(id);
+      return el && el.closest('#sofGapItems') && el.closest('#sofGapItems').style.display !== 'none';
+    });
+
+    if (shownItems.length === 0) {
+      updateMFFlag('pass', 'All material facts covered on the call');
     } else {
-      updateMFFlag('fail', 'Material facts not confirmed via SOF or email');
+      const ticked = shownItems.filter(id => document.getElementById(id)?.checked);
+      if (ticked.length === shownItems.length) {
+        updateMFFlag('pass', 'All material facts confirmed via SOF / email');
+      } else if (ticked.length > 0) {
+        updateMFFlag('partial', `${ticked.length} of ${shownItems.length} material facts confirmed`);
+      } else {
+        updateMFFlag('fail', 'Material facts not confirmed via SOF or email');
+      }
     }
+  } else {
+    // An override is already saved — reflect it in the badge explicitly.
+    // Restoring a case must not silently leave the badge on its default
+    // "Pending" state just because the automatic calculation was skipped.
+    updateMFFlag(existingOverride.result, existingOverride.note);
   }
 
   if (persist && currentCaseIdx !== null) {
     cases[currentCaseIdx].sofData = {
+      ...(existingOverride ? { mfOverride: existingOverride } : {}),
       sofSent: document.getElementById('sofSent')?.value || '',
       sofReturned: document.getElementById('sofReturned')?.value || '',
       sofHow: document.getElementById('sofHow')?.value || '',
@@ -3499,6 +3617,75 @@ function onSOFChange(persist = true) {
     };
     saveToStorage();
   }
+
+  renderMFOverrideButtons();
+}
+
+function renderMFOverrideButtons() {
+  const wrap = document.getElementById('mfOverrideButtons');
+  const autoNote = document.getElementById('mfAutoNote');
+  const overrideNote = document.getElementById('mfOverrideNote');
+  if (!wrap) return;
+
+  const override = currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData?.mfOverride : null;
+  const currentResult = override?.result || document.getElementById('badgeMF')?.className.replace('flag-badge ', '').trim() || 'fail';
+
+  autoNote.style.display = override ? 'none' : 'block';
+  overrideNote.style.display = override ? 'block' : 'none';
+
+  wrap.innerHTML = '';
+
+  if (override) {
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '↺ Back to automatic';
+    backBtn.style.cssText = 'background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer';
+    backBtn.onclick = clearMFOverride;
+    wrap.appendChild(backBtn);
+  }
+
+  const defs = [
+    { result:'pass', text:'Set Pass', tone:'ok' },
+    { result:'partial', text:'Set Partial', tone:'warn' },
+    { result:'fail', text:'Set Fail', tone:'danger' },
+    { result:'na', text:'Set N/A', tone:'warn' }
+  ].filter(d => d.result !== currentResult);
+
+  const toneStyles = {
+    danger: 'background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger)',
+    warn: 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn)',
+    ok: 'background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok)'
+  };
+
+  defs.forEach(d => {
+    const btn = document.createElement('button');
+    btn.style.cssText = toneStyles[d.tone] + ';font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+    btn.textContent = d.text;
+    btn.onclick = () => setMFOverride(d.result);
+    wrap.appendChild(btn);
+  });
+}
+
+function setMFOverride(result) {
+  if (currentCaseIdx === null) return;
+  const notes = {
+    pass: 'Manually confirmed by auditor — all applicable material facts covered',
+    partial: 'Manually set by auditor — some applicable material facts still outstanding',
+    fail: 'Manually set by auditor — material facts not confirmed',
+    na: 'Manually set by auditor — not applicable for this policy type'
+  };
+  const note = notes[result] || 'Manually set by auditor';
+  const c = cases[currentCaseIdx];
+  c.sofData = { ...(c.sofData || {}), mfOverride: { result, note } };
+  updateMFFlag(result, note);
+  renderMFOverrideButtons();
+  saveToStorage();
+}
+
+function clearMFOverride() {
+  if (currentCaseIdx === null) return;
+  const c = cases[currentCaseIdx];
+  if (c.sofData) delete c.sofData.mfOverride;
+  onSOFChange(); // resumes the live ticked-ratio calculation and re-renders the buttons
 }
 
 function updateMFFlag(result, note) {
@@ -3520,13 +3707,14 @@ function initAuditAssistant() {
   messages.innerHTML = '';
 
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-  const compNeedsAttention = ['RV','Cyber','DO'].filter(k => ['fail','needs_review'].includes(lastResult?.compliance?.[k]?.result));
+  const allCompItems = ['RV','Cyber','DO']; // always shown now, regardless of current result — overriding isn't just for fixing fails anymore
   const bsNotAsked = Object.keys(lastResult?.businessSolutions||{}).filter(k => lastResult.businessSolutions[k].result === 'not_asked');
 
   const complianceLabels = { RV:'Reinstatement Values', Cyber:'Cyber Insurance', DO:'Directors & Officers' };
+  const resultLabels = { fail:'FAIL', pass:'PASS', na:'N/A', needs_review:'NEEDS REVIEW' };
   const bsLabels = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Management', sales:'Sales' };
 
-  const hasOverrides = compNeedsAttention.length > 0 || bsNotAsked.length > 0;
+  const hasOverrides = allCompItems.length > 0 || bsNotAsked.length > 0;
 
   if (hasOverrides) {
     const overrideWrap = document.createElement('div');
@@ -3534,10 +3722,10 @@ function initAuditAssistant() {
 
     const overrideTitle = document.createElement('div');
     overrideTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)';
-    overrideTitle.textContent = 'Report overrides — click to adjust if not relevant to this call:';
+    overrideTitle.textContent = 'Report overrides — click any result to change it:';
     overrideWrap.appendChild(overrideTitle);
 
-    if (compNeedsAttention.length > 0) {
+    if (allCompItems.length > 0) {
       const compSection = document.createElement('div');
       compSection.style.cssText = 'display:flex;flex-direction:column;gap:6px';
       const compLabel = document.createElement('div');
@@ -3545,32 +3733,42 @@ function initAuditAssistant() {
       compLabel.textContent = 'Compliance';
       compSection.appendChild(compLabel);
 
-      compNeedsAttention.forEach(k => {
-        const currentResult = lastResult?.compliance?.[k]?.result;
-        const currentLabel = currentResult === 'needs_review' ? 'NEEDS REVIEW' : 'FAIL';
+      allCompItems.forEach(k => {
+        const currentResult = lastResult?.compliance?.[k]?.result || 'fail';
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap';
         const lbl = document.createElement('span');
         lbl.style.cssText = 'font-size:12px;font-weight:500;color:var(--text)';
-        lbl.textContent = complianceLabels[k] + ' — ' + currentLabel;
+        lbl.textContent = complianceLabels[k] + ' — ' + (resultLabels[currentResult] || currentResult.toUpperCase());
         row.appendChild(lbl);
+
         const grp = document.createElement('div');
         grp.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
-        const naBtn = document.createElement('button');
-        naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
-        naBtn.textContent = 'Set N/A';
-        const passBtn = document.createElement('button');
-        passBtn.style.cssText = 'background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
-        passBtn.textContent = 'Set Pass';
-        const reviewBtn = document.createElement('button');
-        reviewBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
-        reviewBtn.textContent = 'Set Needs Review';
-        naBtn.onclick = () => applyComplianceOverride(k, 'na', 'Set to N/A by auditor', naBtn, [passBtn, reviewBtn]);
-        passBtn.onclick = () => applyComplianceOverride(k, 'pass', 'Confirmed as discussed by auditor', passBtn, [naBtn, reviewBtn]);
-        reviewBtn.onclick = () => applyComplianceOverride(k, 'needs_review', 'Set to needs review by auditor — client did not genuinely engage despite contact attempts', reviewBtn, [naBtn, passBtn]);
-        grp.appendChild(naBtn);
-        grp.appendChild(passBtn);
-        if (currentResult !== 'needs_review') grp.appendChild(reviewBtn); // don't offer to set it to what it already is
+
+        const btnDefs = [
+          { result:'fail', text:'Set Fail', tone:'danger', note:'Set to fail by auditor' },
+          { result:'na', text:'Set N/A', tone:'warn', note:'Set to N/A by auditor' },
+          { result:'needs_review', text:'Set Needs Review', tone:'warn', note:'Set to needs review by auditor — client did not genuinely engage despite contact attempts' },
+          { result:'pass', text:'Set Pass', tone:'ok', note:'Confirmed as discussed by auditor' }
+        ].filter(d => d.result !== currentResult); // never offer to set it to what it already is
+
+        const toneStyles = {
+          danger: 'background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger)',
+          warn: 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn)',
+          ok: 'background:var(--ok-bg);border:1px solid var(--ok-border);color:var(--ok)'
+        };
+
+        const btns = btnDefs.map(d => {
+          const btn = document.createElement('button');
+          btn.style.cssText = toneStyles[d.tone] + ';font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
+          btn.textContent = d.text;
+          return btn;
+        });
+        btnDefs.forEach((d, i) => {
+          btns[i].onclick = () => applyComplianceOverride(k, d.result, d.note);
+          grp.appendChild(btns[i]);
+        });
+
         row.appendChild(grp);
         compSection.appendChild(row);
       });
@@ -3621,8 +3819,9 @@ function initAuditAssistant() {
     messages.appendChild(overrideWrap);
   }
 
+  const complianceFlagged = allCompItems.filter(k => ['fail','needs_review'].includes(lastResult?.compliance?.[k]?.result)).length;
   let opening = `I've reviewed the audit for **${c.name || 'this case'}**.`;
-  if (compNeedsAttention.length > 0) opening += ` There ${compNeedsAttention.length === 1 ? 'is' : 'are'} **${compNeedsAttention.length} compliance item${compNeedsAttention.length > 1 ? 's' : ''} flagged (fail or needs review)** — use the override buttons above if any aren't right for this case.`;
+  if (complianceFlagged > 0) opening += ` There ${complianceFlagged === 1 ? 'is' : 'are'} **${complianceFlagged} compliance item${complianceFlagged > 1 ? 's' : ''} flagged (fail or needs review)** — any compliance result can be changed using the buttons above, not just the flagged ones.`;
   if (bsNotAsked.length > 0) opening += ` **${bsNotAsked.length} Business Solution${bsNotAsked.length > 1 ? 's were' : ' was'} not asked** — set to N/A above if this wasn't a suitable call for those conversations.`;
   opening += `\n\nYou can also ask me to adjust anything in the report — scores, findings, next steps — and I'll update it for you.`;
 
@@ -3674,7 +3873,7 @@ IMPORTANT — YOU CAN EDIT THE REPORT DIRECTLY:
 - If the user says business solutions aren't relevant to this call, set ALL business solutions to "na" in the adjusted output.
 - If the user says a specific item isn't relevant, set that item to "na".
 - If the user says something was discussed but not in the transcript, set it to pass.
-- If this was a quick admin/close/handover call, set all deep dive scores (callEffectiveness, technical, commercial, presentationConfidence, marketContext, objectionHandling, engagementCheck, closingProactivity, coverConfirmation, lastMileCrossSell, relationshipClose) to applicable:false in the adjusted output.
+- If this was a quick admin/close/handover call, set all deep dive scores (callEffectiveness, technical, commercial, presentationConfidence, marketContext, objectionHandling, engagementCheck, closingProactivity, coverConfirmation, crossSell, relationshipClose) to applicable:false in the adjusted output.
 - Always explain what you changed and why in plain English BEFORE the ADJUSTED_SCORES block.
 - When outputting ADJUSTED_SCORES, include the complete current result merged with your changes — not just the changed fields.
 - Be direct. If the user asks for a change, make it. Don't ask for confirmation.
@@ -3743,26 +3942,19 @@ function applyBSOverride(key, result, note, btn) {
   }
 }
 
-function applyComplianceOverride(key, result, note, btn, siblingBtns) {
+function applyComplianceOverride(key, result, note) {
   if (!lastResult) return;
   lastResult.compliance[key] = { result, note };
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
+  // render() triggers initAuditAssistant(), which wipes and rebuilds this
+  // whole panel from the updated lastResult — that rebuild, showing the
+  // new current state and the new set of remaining buttons, IS the visual
+  // feedback here. There's nothing further to update by hand afterward.
   render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
   }
-  const labels = { na: 'N/A', pass: 'Pass', needs_review: 'Needs Review' };
-  const tone = result === 'pass' ? 'ok' : 'warn'; // na and needs_review both read as amber/warn, pass as green
-  btn.textContent = '✓ ' + (labels[result] || result) + ' applied';
-  btn.disabled = true;
-  btn.style.background = `var(--${tone}-bg)`;
-  btn.style.borderColor = `var(--${tone}-border)`;
-  btn.style.color = `var(--${tone})`;
-  btn.style.cursor = 'default';
-  (siblingBtns || []).forEach(sib => {
-    if (sib) { sib.disabled = true; sib.style.opacity = '0.35'; sib.style.cursor = 'default'; }
-  });
 }
 
 function applyAdjustedScores(adjusted, btn) {
