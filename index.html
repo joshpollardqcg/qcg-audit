@@ -673,6 +673,7 @@ textarea{resize:vertical;font-size:12px;line-height:1.6}
         <!-- AUDIT ASSISTANT -->
         <div class="narrative-card" id="auditAssistantCard">
           <h3>💬 Audit Assistant</h3>
+          <div id="overridePanelWrap" style="margin-bottom:12px"></div>
           <div id="auditChatMessages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;max-height:400px;overflow-y:auto"></div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <textarea id="auditChatInput" placeholder="Ask me to adjust anything in the report... e.g.&#10;'Business solutions aren't relevant on this call'&#10;'D&O doesn't apply here'&#10;'This was a quick close for a colleague — adjust accordingly'&#10;'Draft a coaching email for the handler'" style="width:100%;min-height:80px;font-size:12px;line-height:1.6;resize:vertical" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))sendAuditChat()"></textarea>
@@ -1403,7 +1404,7 @@ async function exportCSV() {
     const co = r.compliance || {};
     const bs = r.businessSolutions || {};
     return [
-      r.auditedAt ? r.auditedAt.slice(0,7) : '', r.ref, r.name, r.handler, r.renewal,
+      r.monthKey || (r.auditedAt ? r.auditedAt.slice(0,7) : ''), r.ref, r.name, r.handler, r.renewal,
       r.auditedAt ? new Date(r.auditedAt).toLocaleDateString('en-GB') : '',
       r.score, r.maxScore,
       sc.contactStrategy?.score??'', sc.clientResistance?.applicable ? sc.clientResistance?.score??'' : 'N/A',
@@ -1798,10 +1799,22 @@ async function clearQueue() {
 function normaliseDate(val) {
   if (!val) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-  const dmy = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
-  const mdy = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+
+  const slashMatch = val.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (slashMatch) {
+    const [, a, b, year] = slashMatch;
+    const aNum = parseInt(a), bNum = parseInt(b);
+    // UK convention first (day/month), since this is a UK tool — but only
+    // if it's actually a valid date. A stray US-formatted date (month/day)
+    // would otherwise silently produce something like month "13", invalid
+    // but never checked, rather than being read correctly.
+    const dmyValid = aNum >= 1 && aNum <= 31 && bNum >= 1 && bNum <= 12;
+    const mdyValid = bNum >= 1 && bNum <= 31 && aNum >= 1 && aNum <= 12;
+    if (dmyValid) return `${year}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;
+    if (mdyValid) return `${year}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`;
+    return ''; // neither reading is a real date — don't guess
+  }
+
   if (/^\d{4,5}$/.test(val)) {
     const serial = parseInt(val);
     const date = new Date((serial - 25569) * 86400 * 1000);
@@ -2700,7 +2713,7 @@ Generate 3-5 specific, actionable development points for the handler based on th
   setLoading(false);
 }
 
-function render(r, clientName, clientRef, handler, renewalDate) {
+function render(r, clientName, clientRef, handler, renewalDate, preserveChat) {
   document.getElementById('rClientName').textContent = clientName;
   const meta = document.getElementById('rMeta');
   meta.innerHTML = '';
@@ -2869,7 +2882,11 @@ function render(r, clientName, clientRef, handler, renewalDate) {
   }
 
   document.getElementById('auditAssistantCard').style.display = 'block';
-  initAuditAssistant();
+  if (preserveChat) {
+    renderOverridePanel(); // report state changed, refresh just the override buttons — leave the conversation alone
+  } else {
+    initAuditAssistant(); // genuinely fresh — resets the conversation too
+  }
 
   const suggestions = [
     'Draft a coaching email to the handler',
@@ -3646,7 +3663,7 @@ function onSOFChange(persist = true) {
   if (buildingTicked && ['fail','needs_review'].includes(lastResult.compliance?.RV?.result)) {
     lastResult.compliance.RV = { result: 'pass', note: 'Building sum insured / RV / index linking confirmed via SOF' };
     const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-    render(lastResult, c.name||'Unknown', c.ref||'N/A', c.handler||'Unknown', c.renewal||'');
+    render(lastResult, c.name||'Unknown', c.ref||'N/A', c.handler||'Unknown', c.renewal||'', true);
   }
 
   const existingOverride = currentCaseIdx !== null ? cases[currentCaseIdx]?.sofData?.mfOverride : null;
@@ -3783,12 +3800,11 @@ function updateMFFlag(result, note) {
 
 let auditChatHistory = [];
 
-function initAuditAssistant() {
-  auditChatHistory = [];
-  const messages = document.getElementById('auditChatMessages');
-  messages.innerHTML = '';
+function renderOverridePanel() {
+  const wrap = document.getElementById('overridePanelWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
 
-  const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
   const allCompItems = ['RV','Cyber','DO']; // always shown now, regardless of current result — overriding isn't just for fixing fails anymore
   const bsNotAsked = Object.keys(lastResult?.businessSolutions||{}).filter(k => lastResult.businessSolutions[k].result === 'not_asked');
 
@@ -3797,17 +3813,17 @@ function initAuditAssistant() {
   const bsLabels = { recruitment:'Recruitment', energy:'Energy', risk:'Risk', wealth:'Wealth Management', sales:'Sales' };
 
   const hasOverrides = allCompItems.length > 0 || bsNotAsked.length > 0;
+  if (!hasOverrides) return;
 
-  if (hasOverrides) {
-    const overrideWrap = document.createElement('div');
-    overrideWrap.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px';
+  const overrideWrap = document.createElement('div');
+  overrideWrap.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px';
 
-    const overrideTitle = document.createElement('div');
-    overrideTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)';
-    overrideTitle.textContent = 'Report overrides — click any result to change it:';
-    overrideWrap.appendChild(overrideTitle);
+  const overrideTitle = document.createElement('div');
+  overrideTitle.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)';
+  overrideTitle.textContent = 'Report overrides — click any result to change it:';
+  overrideWrap.appendChild(overrideTitle);
 
-    if (allCompItems.length > 0) {
+  if (allCompItems.length > 0) {
       const compSection = document.createElement('div');
       compSection.style.cssText = 'display:flex;flex-direction:column;gap:6px';
       const compLabel = document.createElement('div');
@@ -3869,12 +3885,21 @@ function initAuditAssistant() {
       allNaBtn.style.cssText = 'background:var(--bg);border:1px solid var(--border2);color:var(--muted);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:500;padding:5px 10px;border-radius:6px;cursor:pointer;width:fit-content';
       allNaBtn.textContent = 'Set all to N/A';
       allNaBtn.onclick = () => {
-        bsNotAsked.forEach(k => applyBSOverride(k, 'na', 'Not applicable to this call'));
-        allNaBtn.textContent = '✓ All set to N/A';
-        allNaBtn.disabled = true;
-        allNaBtn.style.color = 'var(--ok)';
-        allNaBtn.style.borderColor = 'var(--ok-border)';
-        bsSection.querySelectorAll('.bs-override-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.35'; });
+        // Mutate every item first, no render or save yet — then one render
+        // and one save at the very end. Doing this per-item instead (as it
+        // did before) fired N overlapping, un-awaited saves for N items,
+        // all writing the same final state, N duplicate database rows for
+        // what should be a single update.
+        bsNotAsked.forEach(k => applyBSOverride(k, 'na', 'Not applicable to this call', true));
+        const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
+        render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '', true);
+        if (currentCaseIdx !== null) {
+          cases[currentCaseIdx].result = lastResult;
+          saveToStorage();
+        }
+        // render() already rebuilt this whole panel from the new state —
+        // nothing further to update by hand, same reasoning as everywhere
+        // else this pattern shows up.
       };
       bsSection.appendChild(allNaBtn);
 
@@ -3890,7 +3915,7 @@ function initAuditAssistant() {
         naBtn.style.cssText = 'background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn);font-family:\'Aptos\',\'Segoe UI\',\'Calibri\',Arial,sans-serif;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px;cursor:pointer;white-space:nowrap';
         naBtn.textContent = 'Set N/A';
         naBtn.onclick = () => {
-          applyBSOverride(k, 'na', 'Not applicable to this call — set by auditor', naBtn);
+          applyBSOverride(k, 'na', 'Not applicable to this call — set by auditor');
         };
         row.appendChild(naBtn);
         bsSection.appendChild(row);
@@ -3898,10 +3923,23 @@ function initAuditAssistant() {
       overrideWrap.appendChild(bsSection);
     }
 
-    messages.appendChild(overrideWrap);
-  }
+    wrap.appendChild(overrideWrap);
+}
 
-  const complianceFlagged = allCompItems.filter(k => ['fail','needs_review'].includes(lastResult?.compliance?.[k]?.result)).length;
+// Genuinely resets the conversation — only call this for a real fresh
+// start (opening a case, a brand new audit result). Anything that just
+// needs the override buttons or the score panels to reflect a change
+// should call renderOverridePanel() / render(..., true) instead, which
+// leave an in-progress conversation untouched.
+function initAuditAssistant() {
+  auditChatHistory = [];
+  const messages = document.getElementById('auditChatMessages');
+  messages.innerHTML = '';
+  renderOverridePanel();
+
+  const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
+  const bsNotAsked = Object.keys(lastResult?.businessSolutions||{}).filter(k => lastResult.businessSolutions[k].result === 'not_asked');
+  const complianceFlagged = ['RV','Cyber','DO'].filter(k => ['fail','needs_review'].includes(lastResult?.compliance?.[k]?.result)).length;
   let opening = `I've reviewed the audit for **${c.name || 'this case'}**.`;
   if (complianceFlagged > 0) opening += ` There ${complianceFlagged === 1 ? 'is' : 'are'} **${complianceFlagged} compliance item${complianceFlagged > 1 ? 's' : ''} flagged (fail or needs review)** — any compliance result can be changed using the buttons above, not just the flagged ones.`;
   if (bsNotAsked.length > 0) opening += ` **${bsNotAsked.length} Business Solution${bsNotAsked.length > 1 ? 's were' : ' was'} not asked** — set to N/A above if this wasn't a suitable call for those conversations.`;
@@ -4005,22 +4043,19 @@ ADJUSTED_SCORES:{"scores":{...complete scores...},"compliance":{...},"businessSo
   }
 }
 
-function applyBSOverride(key, result, note, btn) {
+function applyBSOverride(key, result, note, skipSaveAndRender) {
   if (!lastResult || !lastResult.businessSolutions) return;
   lastResult.businessSolutions[key] = { result, note };
+  if (skipSaveAndRender) return; // caller is batching several of these — it renders and saves once, at the end
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
+  // render() triggers initAuditAssistant(), which wipes and rebuilds this
+  // whole panel from the updated lastResult — same as applyComplianceOverride
+  // right below this, that rebuild IS the visual feedback. Mutating the
+  // clicked button afterward did nothing, render() had already replaced it.
+  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '', true);
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
-  }
-  if (btn) {
-    btn.textContent = '✓ N/A applied';
-    btn.disabled = true;
-    btn.style.background = 'var(--bg)';
-    btn.style.borderColor = 'var(--border2)';
-    btn.style.color = 'var(--muted)';
-    btn.style.cursor = 'default';
   }
 }
 
@@ -4032,7 +4067,7 @@ function applyComplianceOverride(key, result, note) {
   // whole panel from the updated lastResult — that rebuild, showing the
   // new current state and the new set of remaining buttons, IS the visual
   // feedback here. There's nothing further to update by hand afterward.
-  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
+  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '', true);
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].result = lastResult;
     saveToStorage();
@@ -4062,7 +4097,7 @@ function applyAdjustedScores(adjusted, btn) {
   if (adjusted.nextSteps) lastResult.nextSteps = adjusted.nextSteps;
 
   const c = currentCaseIdx !== null ? cases[currentCaseIdx] : {};
-  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '');
+  render(lastResult, c.name || 'Unknown', c.ref || 'N/A', c.handler || 'Unknown', c.renewal || '', true);
 
   if (currentCaseIdx !== null) {
     cases[currentCaseIdx].result = lastResult;
@@ -4233,7 +4268,12 @@ async function hardReset() {
   currentMonth = getCurrentMonthKey();
   knownMonths = [];
   cases = [];
+  const hadCaseOpen = currentCaseIdx !== null;
   currentCaseIdx = null;
+  if (hadCaseOpen) {
+    document.getElementById('tabAudit').style.display = 'none';
+    switchView('queue');
+  }
   lastExportTime = null;
   renderMonthSelect();
   renderQueue();
